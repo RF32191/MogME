@@ -26,6 +26,8 @@ export type MatchPhase =
   | "pairing"
   | "face"
   | "cognition"
+  | "reflex"
+  | "punch"
   | "rizz"
   | "complete"
   | "abandoned";
@@ -50,6 +52,8 @@ export interface Match {
   state: {
     face?: FaceRoundState;
     cognition?: CognitionRoundState;
+    reflex?: ReflexRoundState;
+    punch?: PunchRoundState;
     rizz?: RizzRoundState;
   };
   winnerId?: string | null;
@@ -77,6 +81,26 @@ export interface CognitionRoundState {
   questions: CognitionQuestion[];
   /** userId -> array of { questionId, choiceIndex, msElapsed }. */
   answers: Record<string, { questionId: string; choiceIndex: number; msElapsed: number }[]>;
+  startedAt: number;
+  deadline: number;
+}
+
+export interface ReflexRoundState {
+  /** How many targets light up this round. */
+  targetCount: number;
+  /** Shared schedule: ms delay before each target appears (same for both players). */
+  delays: number[];
+  /** userId -> reaction time (ms) per target; a miss/false-start is stored as a penalty. */
+  submissions: Record<string, number[]>;
+  startedAt: number;
+  deadline: number;
+}
+
+export interface PunchRoundState {
+  /** How many attempts each player gets; only their best counts. */
+  attempts: number;
+  /** userId -> best punch speed (m/s) submitted. */
+  bestByUser: Record<string, number>;
   startedAt: number;
   deadline: number;
 }

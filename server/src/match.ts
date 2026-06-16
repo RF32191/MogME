@@ -5,6 +5,8 @@ import { applyElo } from "./elo.js";
 import type { Match, MatchPlayer, RoundResult, User } from "./types.js";
 import { initFaceRound, resolveFaceRound } from "./rounds/face.js";
 import { initCognitionRound, resolveCognitionRound } from "./rounds/cognition.js";
+import { initReflexRound, resolveReflexRound } from "./rounds/reflex.js";
+import { initPunchRound, resolvePunchRound } from "./rounds/punch.js";
 import { initRizzRound, resolveRizzRound } from "./rounds/rizz.js";
 
 export function createMatch(userA: User, userB: User, rounds: RoundName[] = [...config.rounds]): Match {
@@ -42,6 +44,12 @@ export function advanceMatch(match: Match): Match["phase"] {
     case "cognition":
       match.state.cognition = initCognitionRound();
       break;
+    case "reflex":
+      match.state.reflex = initReflexRound();
+      break;
+    case "punch":
+      match.state.punch = initPunchRound();
+      break;
     case "rizz":
       match.state.rizz = initRizzRound();
       break;
@@ -55,6 +63,8 @@ export function resolveCurrentRound(match: Match): RoundResult | null {
   let result: RoundResult | null = null;
   if (round === "face" && match.state.face) result = resolveFaceRound(match.state.face, match);
   else if (round === "cognition" && match.state.cognition) result = resolveCognitionRound(match.state.cognition, match);
+  else if (round === "reflex" && match.state.reflex) result = resolveReflexRound(match.state.reflex, match);
+  else if (round === "punch" && match.state.punch) result = resolvePunchRound(match.state.punch, match);
   else if (round === "rizz" && match.state.rizz) result = resolveRizzRound(match.state.rizz, match);
   if (result) {
     match.results.push(result);

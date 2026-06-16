@@ -12,8 +12,11 @@ import {
 import type { Match } from "./types.js";
 import { submitFace, bothSubmitted, opponentImageFor } from "./rounds/face.js";
 import { serializeQuestions, submitAnswer, allAnswered } from "./rounds/cognition.js";
+import { serializeReflex, submitReflex, bothReflexSubmitted } from "./rounds/reflex.js";
+import { serializePunch, submitPunch, bothPunched } from "./rounds/punch.js";
 import { rizzTurn } from "./rounds/rizz.js";
-import { isBotId, botFaceScore, botCognitionAnswers } from "./bot.js";
+import { isBotId, botFaceScore, botCognitionAnswers, botReflexTimes, botPunchSpeed, botRizzPlan } from "./bot.js";
+import { config } from "./config.js";
 
 /** userId -> live socket */
 const sockets = new Map<string, WebSocket>();
@@ -24,10 +27,12 @@ const botTimers = new Map<string, NodeJS.Timeout>();
 
 const ClientMsg = z.discriminatedUnion("type", [
   z.object({ type: z.literal("auth"), userId: z.string() }),
-  z.object({ type: z.literal("queue.join"), rounds: z.array(z.enum(["face", "cognition", "rizz"])).optional() }),
+  z.object({ type: z.literal("queue.join"), rounds: z.array(z.enum(["face", "cognition", "reflex", "rizz"])).optional() }),
   z.object({ type: z.literal("queue.leave") }),
   z.object({ type: z.literal("face.submit"), score: z.number(), distortedImage: z.string() }),
   z.object({ type: z.literal("cognition.answer"), questionId: z.string(), choiceIndex: z.number().int() }),
+  z.object({ type: z.literal("reflex.submit"), times: z.array(z.number()) }),
+  z.object({ type: z.literal("punch.submit"), speed: z.number() }),
   z.object({ type: z.literal("rizz.message"), text: z.string() }),
 ]);
 
@@ -93,6 +98,12 @@ export function attachWebSocket(server: Server): void {
         case "cognition.answer":
           handleCognitionAnswer(userId, msg.questionId, msg.choiceIndex);
           break;
+        case "reflex.submit":
+          handleReflexSubmit(userId, msg.times);
+          break;
+        case "punch.submit":
+          handlePunchSubmit(userId, msg.speed);
+          break;
         case "rizz.message":
           await handleRizzMessage(userId, msg.text);
           break;
@@ -155,6 +166,22 @@ function startNextRound(match: Match): void {
       questions: serializeQuestions(match.state.cognition!),
     }));
     armTimer(match, match.state.cognition.deadline, () => resolveAndAdvance(match));
+  } else if (phase === "reflex" && match.state.reflex) {
+    broadcast(match, () => ({
+      type: "round.start",
+      round: "reflex",
+      deadline: match.state.reflex!.deadline,
+      reflex: serializeReflex(match.state.reflex!),
+    }));
+    armTimer(match, match.state.reflex.deadline, () => resolveAndAdvance(match));
+  } else if (phase === "punch" && match.state.punch) {
+    broadcast(match, () => ({
+      type: "round.start",
+      round: "punch",
+      deadline: match.state.punch!.deadline,
+      punch: serializePunch(match.state.punch!),
+    }));
+    armTimer(match, match.state.punch.deadline, () => resolveAndAdvance(match));
   } else if (phase === "rizz" && match.state.rizz) {
     broadcast(match, () => ({
       type: "round.start",
@@ -207,6 +234,69 @@ function scheduleBotPlay(match: Match): void {
     }, botDelay(deadline, 9000, 22000));
     t.unref?.();
     botTimers.set(match.id, t);
+  } else if (match.phase === "reflex" && match.state.reflex) {
+    const deadline = match.state.reflex.deadline;
+    const t = setTimeout(() => {
+      const reflex = match.state.reflex;
+      if (match.phase !== "reflex" || !reflex) return;
+      if (reflex.submissions[botId] === undefined) {
+        submitReflex(reflex, botId, botReflexTimes(botElo, reflex.targetCount));
+      }
+      if (bothReflexSubmitted(reflex, match)) resolveAndAdvance(match);
+    }, botDelay(deadline, 6000, 14000));
+    t.unref?.();
+    botTimers.set(match.id, t);
+  } else if (match.phase === "punch" && match.state.punch) {
+    const deadline = match.state.punch.deadline;
+    const t = setTimeout(() => {
+      const punch = match.state.punch;
+      if (match.phase !== "punch" || !punch) return;
+      if (punch.bestByUser[botId] === undefined) {
+        submitPunch(punch, botId, botPunchSpeed(botElo));
+      }
+      if (bothPunched(punch, match)) resolveAndAdvance(match);
+    }, botDelay(deadline, 8000, 18000));
+    t.unref?.();
+    botTimers.set(match.id, t);
+  } else if (match.phase === "rizz" && match.state.rizz) {
+    // The bot "charms" the AI date over time: it climbs affection in steps, the
+    // human sees the rival's live progress, and if the bot hits the threshold
+    // first it wins the round — a real race, not a free win.
+    const rizz = match.state.rizz;
+    const steps = botRizzPlan(botElo, rizz.startedAt, rizz.deadline, config.rizzWinThreshold);
+    const human = match.players.find((p) => p.userId !== botId);
+    let idx = 0;
+
+    const runStep = (): void => {
+      const state = match.state.rizz;
+      if (match.phase !== "rizz" || !state) return;
+      const step = steps[idx];
+      if (!step) return;
+
+      const ps = (state.byUser[botId] ??= { affection: 20, turns: 0, transcript: [], busy: false });
+      ps.affection = step.affection;
+      ps.turns = step.turns;
+      if (human) send(human.userId, { type: "rizz.opponentProgress", affection: ps.affection, turns: ps.turns });
+
+      if (ps.affection >= config.rizzWinThreshold && ps.wonAtMs === undefined) {
+        ps.wonAtMs = Date.now() - state.startedAt;
+        resolveAndAdvance(match);
+        return;
+      }
+
+      idx += 1;
+      const next = steps[idx];
+      if (next) {
+        const wait = Math.max(500, next.atMs - step.atMs);
+        const nt = setTimeout(runStep, wait);
+        nt.unref?.();
+        botTimers.set(match.id, nt);
+      }
+    };
+
+    const first = setTimeout(runStep, Math.max(500, steps[0]?.atMs ?? 4000));
+    first.unref?.();
+    botTimers.set(match.id, first);
   }
 }
 
@@ -287,6 +377,28 @@ function handleCognitionAnswer(userId: string, questionId: string, choiceIndex: 
   const res = submitAnswer(match.state.cognition, userId, questionId, choiceIndex);
   send(userId, { type: "cognition.ack", ok: res.ok, reason: res.reason });
   if (allAnswered(match.state.cognition, match)) resolveAndAdvance(match);
+}
+
+function handleReflexSubmit(userId: string, times: number[]): void {
+  const match = activeMatchFor(userId);
+  if (!match || match.phase !== "reflex" || !match.state.reflex) {
+    send(userId, { type: "error", reason: "no-reflex-round" });
+    return;
+  }
+  const res = submitReflex(match.state.reflex, userId, times);
+  send(userId, { type: "reflex.ack", ok: res.ok, reason: res.reason });
+  if (bothReflexSubmitted(match.state.reflex, match)) resolveAndAdvance(match);
+}
+
+function handlePunchSubmit(userId: string, speed: number): void {
+  const match = activeMatchFor(userId);
+  if (!match || match.phase !== "punch" || !match.state.punch) {
+    send(userId, { type: "error", reason: "no-punch-round" });
+    return;
+  }
+  const res = submitPunch(match.state.punch, userId, speed);
+  send(userId, { type: "punch.ack", ok: res.ok, reason: res.reason });
+  if (bothPunched(match.state.punch, match)) resolveAndAdvance(match);
 }
 
 async function handleRizzMessage(userId: string, text: string): Promise<void> {

@@ -77,6 +77,67 @@ export function botCognitionAnswers(
   });
 }
 
+/**
+ * Plausible per-target reaction times (ms) for the bot in a reflex duel. Higher
+ * ELO → faster average, with enough variance that the player can win or lose.
+ */
+export function botReflexTimes(elo: number, count: number): number[] {
+  // Center ~320ms at ELO 1000; ~±100ms across a typical band.
+  const base = clamp(320 - (elo - 1000) / 12, 200, 470);
+  return Array.from({ length: count }, () =>
+    Math.round(clamp(base + (Math.random() - 0.4) * 170, 150, 900)),
+  );
+}
+
+/**
+ * A plausible best punch speed (m/s) for the bot. Higher ELO punches a bit
+ * harder, with variance so the player can win or lose.
+ */
+export function botPunchSpeed(elo: number): number {
+  // Center ~6.5 m/s at ELO 1000; casual punches land 4–9 m/s on-device.
+  const base = clamp(6.5 + (elo - 1000) / 250, 4.5, 10.5);
+  return Math.round(clamp(base + (Math.random() - 0.45) * 3.0, 3, 13) * 100) / 100;
+}
+
+/** One scheduled "message" the bot lands during a rizz round. */
+export interface BotRizzStep {
+  /** ms from round start when this step fires. */
+  atMs: number;
+  /** the bot's affection after this step (0-100). */
+  affection: number;
+  /** the bot's turn count after this step. */
+  turns: number;
+}
+
+/**
+ * Plan the bot's rizz round as a series of affection gains over time, so the
+ * human sees a live rival climbing toward the win threshold. Higher-ELO bots
+ * charm faster and are more likely to reach the threshold first.
+ */
+export function botRizzPlan(elo: number, startedAt: number, deadline: number, threshold: number): BotRizzStep[] {
+  const totalMs = Math.max(1000, deadline - startedAt);
+  const skill = clamp(0.4 + (elo - 1000) / 1600 + (Math.random() - 0.5) * 0.15, 0.25, 0.9);
+  // Does the bot fully win them over? More skill → more likely.
+  const reaches = Math.random() < skill;
+  const finalAffection = reaches
+    ? threshold
+    : Math.round(clamp(40 + skill * 50 + (Math.random() - 0.5) * 20, 25, threshold - 4));
+
+  const stepCount = 5 + Math.floor(Math.random() * 4); // 5–8 "messages"
+  const steps: BotRizzStep[] = [];
+  // First message lands a few seconds in; spread the rest across the round with jitter.
+  let t = 3500 + Math.random() * 4000;
+  for (let i = 0; i < stepCount; i++) {
+    const frac = (i + 1) / stepCount;
+    const affection = Math.round(20 + (finalAffection - 20) * frac);
+    const atMs = Math.min(t, totalMs - 1500);
+    steps.push({ atMs, affection, turns: i + 1 });
+    if (atMs >= totalMs - 1500) break;
+    t += (totalMs / stepCount) * (0.7 + Math.random() * 0.6);
+  }
+  return steps;
+}
+
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }

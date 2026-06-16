@@ -11,12 +11,16 @@ export const config = {
   port: num("PORT", 8787),
 
   // Rounds in a full match, in order. Each can also be played standalone.
-  rounds: ["face", "cognition", "rizz"] as const,
+  rounds: ["face", "cognition", "reflex", "punch", "rizz"] as const,
 
   // Round timing (ms)
   faceRoundTimeoutMs: num("FACE_ROUND_TIMEOUT_MS", 60_000),
   cognitionRoundMs: num("COGNITION_ROUND_MS", 45_000),
   cognitionQuestionCount: num("COGNITION_QUESTION_COUNT", 5),
+  reflexRoundMs: num("REFLEX_ROUND_MS", 40_000),
+  reflexTargetCount: num("REFLEX_TARGET_COUNT", 5),
+  punchRoundMs: num("PUNCH_ROUND_MS", 40_000),
+  punchAttempts: num("PUNCH_ATTEMPTS", 3),
   rizzRoundMs: num("RIZZ_ROUND_MS", 120_000),
   rizzMaxTurns: num("RIZZ_MAX_TURNS", 12),
   rizzWinThreshold: num("RIZZ_WIN_THRESHOLD", 100),
