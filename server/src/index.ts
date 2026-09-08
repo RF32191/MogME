@@ -7,6 +7,7 @@ import { leaderboardRouter } from "./routes/leaderboard.js";
 import { rizzRouter } from "./routes/rizz.js";
 import { companionRouter } from "./routes/companion.js";
 import { trendsRouter } from "./routes/trends.js";
+import { wingmanRouter } from "./routes/wingman.js";
 import { attachWebSocket } from "./ws.js";
 
 const app = express();
@@ -18,6 +19,7 @@ app.get("/health", (_req, res) => {
     ok: true,
     rounds: config.rounds,
     rizzModel: config.openaiApiKey ? config.rizzModel : "heuristic (no OPENAI_API_KEY)",
+    wingmanModel: config.openaiApiKey ? config.wingmanModel : "heuristic (no OPENAI_API_KEY)",
     moderation: config.moderationEnabled ? config.moderationProvider : "disabled",
   });
 });
@@ -27,6 +29,7 @@ app.use("/leaderboard", leaderboardRouter);
 app.use("/rizz", rizzRouter);
 app.use("/companion", companionRouter);
 app.use("/trends", trendsRouter);
+app.use("/wingman", wingmanRouter);
 
 const server = http.createServer(app);
 attachWebSocket(server);

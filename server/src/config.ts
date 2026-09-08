@@ -38,9 +38,13 @@ export const config = {
   eloK: num("ELO_K", 32),
   eloStart: num("ELO_START", 1000),
 
-  // LLM (AI rizz)
+  // LLM (AI rizz + wingman). gpt-4o-mini keeps Railway token cost low.
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   rizzModel: process.env.RIZZ_MODEL ?? "gpt-4o-mini",
+  wingmanModel: process.env.WINGMAN_MODEL ?? process.env.RIZZ_MODEL ?? "gpt-4o-mini",
+  wingmanMaxTokens: num("WINGMAN_MAX_TOKENS", 280),
+  wingmanDailyRequestCap: num("WINGMAN_DAILY_REQUEST_CAP", 40),
+  wingmanDailyTokenCap: num("WINGMAN_DAILY_TOKEN_CAP", 50_000),
 
   // Moderation (image + text). Wire real providers via these.
   moderationEnabled: process.env.MODERATION_ENABLED === "true",

@@ -1,0 +1,34 @@
+{
+  "identifier" : "MogMeStore",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6758647492",
+      "localizations" : [
+        {
+          "description" : "One-time MogMe lifetime unlock. App Store Connect product MogMe.Lifetime.60.",
+          "displayName" : "MogMe Lifetime",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "MogMe.Lifetime.60",
+      "referenceName" : "47",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6757411615",
+    "_developerTeamID" : "DHA828G7P3"
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
