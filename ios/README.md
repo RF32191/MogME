@@ -6,7 +6,7 @@ Open `ios/MogMe.xcodeproj` on a Mac with Xcode 16+.
 
 ## Lifetime price
 
-The paywall loads **MogMe.Lifetime.60** (Apple ID `6758647492`, reference name `47`) through StoreKit 2 and shows Apple’s live price. It does not hardcode $4.99. Local StoreKit testing uses `MogMe/Resources/Products.storekit`.
+The paywall loads **MogMe.Lifetime.60** at **$4.99** (Apple ID `6758647492`). Purchase, Restore, Apple Pay, and unfinished StoreKit transactions all grant the same premium flag. The Xcode scheme points at `MogMe/Resources/Products.storekit` so the product exists in the Simulator environment.
 
 ## Workouts
 
@@ -18,7 +18,7 @@ Japanese walking (3 min brisk / 3 min easy) and interval cardio share `WorkoutLo
 
 ## Diet
 
-Meal photos are written under the app Documents sandbox. Calories come from Open Food Facts plus `Resources/foods.json`. A package photo uses on-device Vision OCR, then a name search — no generative calorie AI.
+Live camera capture (AVFoundation) shows a full-screen loading overlay while the photo is described. You can edit that description or retake, then calories come from Open Food Facts — not an AI guess. Photos stay in the app sandbox.
 
 ## Siri
 
@@ -26,4 +26,4 @@ Shortcuts: look up food calories, start Japanese walking, start interval cardio,
 
 ## Wingman
 
-Social → AI Wingman sends a compressed chat screenshot (768px, JPEG 0.55, `detail: low`) plus a short on-device partner memory to `POST /wingman/advise`. Railway token caps live in `WINGMAN_*` env vars.
+Social → AI Wingman is a real thread. A live or library chat screenshot is compressed, sent as vision input, and billed (~85 image tokens + reply). Railway caps live in `WINGMAN_*` env vars.

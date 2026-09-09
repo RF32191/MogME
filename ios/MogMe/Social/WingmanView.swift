@@ -9,6 +9,7 @@ struct WingmanView: View {
     @State private var text = ""
     @State private var chatImage: UIImage?
     @State private var pickerItem: PhotosPickerItem?
+    @State private var cameraOpen = false
     @State private var name = ""
     @State private var notes = ""
     @State private var style = ""
@@ -17,95 +18,28 @@ struct WingmanView: View {
     var body: some View {
         ZStack {
             MogTheme.backgroundGradient.ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    MogCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Who you're texting").font(.headline)
-                            Text("Saved only on this iPhone. The server gets a short summary per request.")
-                                .font(.footnote)
-                                .foregroundStyle(MogTheme.muted)
-                            TextField("Name", text: $name)
-                                .textFieldStyle(.roundedBorder)
-                            TextField("Texting style (dry, playful, slow…)", text: $style)
-                                .textFieldStyle(.roundedBorder)
-                            TextField("Notes", text: $notes, axis: .vertical)
-                                .textFieldStyle(.roundedBorder)
-                                .lineLimit(3...6)
-                            HStack {
-                                TextField("Add a fact", text: $factDraft)
-                                    .textFieldStyle(.roundedBorder)
-                                Button("Save person") { savePartner() }
-                                    .buttonStyle(.bordered)
-                            }
-                            if let selected = partners.selected {
-                                Text("Active: \(selected.name.isEmpty ? "Unnamed" : selected.name) · \(selected.facts.count) facts")
-                                    .font(.caption)
-                                    .foregroundStyle(MogTheme.gold)
-                            }
-                        }
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        memoryCard
+                        conversation
                     }
-
-                    MogCard {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Picker("Goal", selection: $goal) {
-                                Text("Evaluate").tag("evaluate")
-                                Text("Draft replies").tag("reply")
-                                Text("Strategy").tag("strategy")
-                            }
-                            .pickerStyle(.segmented)
-                            TextField("Paste the last texts, or describe the moment", text: $text, axis: .vertical)
-                                .textFieldStyle(.roundedBorder)
-                                .lineLimit(4...8)
-                            HStack {
-                                PhotosPicker(selection: $pickerItem, matching: .images) {
-                                    Label("Chat screenshot", systemImage: "text.below.photo")
-                                }
-                                if chatImage != nil {
-                                    Button("Clear photo") { chatImage = nil }
-                                }
-                            }
-                            if let chatImage {
-                                Image(uiImage: chatImage)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxHeight: 180)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                            }
-                            Button("Ask Wingman") {
-                                Task { await ask() }
-                            }
-                            .buttonStyle(GoldButtonStyle(enabled: !service.busy))
-                            Text(service.usageText).font(.caption).foregroundStyle(MogTheme.muted)
-                            if service.busy { ProgressView().tint(MogTheme.gold) }
-                            if let err = service.error { Text(err).font(.footnote).foregroundStyle(.red) }
-                        }
-                    }
-
-                    if !service.advice.isEmpty {
-                        MogCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Advice").font(.headline)
-                                Text(service.advice)
-                                if !service.replies.isEmpty {
-                                    Text("Try sending").font(.subheadline.bold()).padding(.top, 6)
-                                    ForEach(service.replies, id: \.self) { reply in
-                                        Text("“\(reply)”")
-                                            .padding(10)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                            .background(MogTheme.goldSoft)
-                                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    .padding(20)
                 }
-                .padding(20)
+                composer
             }
         }
         .navigationTitle("AI Wingman")
         .onAppear { hydrateFromSelected() }
+        .fullScreenCover(isPresented: $cameraOpen) {
+            MealCameraView(
+                onCapture: { image in
+                    chatImage = image
+                    cameraOpen = false
+                },
+                onCancel: { cameraOpen = false }
+            )
+        }
         .onChange(of: pickerItem) { _, item in
             Task {
                 guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
@@ -118,6 +52,133 @@ struct WingmanView: View {
             appState.pendingWingmanPrompt = nil
             Task { await ask() }
         }
+    }
+
+    private var memoryCard: some View {
+        MogCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Who you're texting").font(.headline)
+                Text("Saved on this iPhone. Each screenshot you send is a real vision turn and spends tokens.")
+                    .font(.footnote)
+                    .foregroundStyle(MogTheme.muted)
+                TextField("Name", text: $name).textFieldStyle(.roundedBorder)
+                TextField("Texting style", text: $style).textFieldStyle(.roundedBorder)
+                TextField("Notes", text: $notes, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(2...4)
+                HStack {
+                    TextField("Add a fact", text: $factDraft).textFieldStyle(.roundedBorder)
+                    Button("Save") { savePartner() }.buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
+    private var conversation: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if service.messages.isEmpty {
+                MogCard {
+                    Text("Drop a live screenshot of the chat. Wingman reads the bubbles, answers in this thread, and the turn is billed.")
+                        .foregroundStyle(MogTheme.muted)
+                }
+            }
+            ForEach(service.messages) { message in
+                VStack(alignment: message.role == "user" ? .trailing : .leading, spacing: 6) {
+                    if let image = message.image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 180)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    Text(message.content)
+                        .padding(10)
+                        .background(message.role == "user" ? MogTheme.goldSoft : MogTheme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    if let usage = message.usageLine {
+                        Text(usage).font(.caption2).foregroundStyle(MogTheme.muted)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: message.role == "user" ? .trailing : .leading)
+            }
+            if !service.replies.isEmpty {
+                Text("Try sending").font(.subheadline.bold())
+                ForEach(service.replies, id: \.self) { reply in
+                    Button {
+                        text = reply
+                    } label: {
+                        Text("“\(reply)”")
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(MogTheme.goldSoft)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if service.busy {
+                HStack(spacing: 8) {
+                    ProgressView().tint(MogTheme.gold)
+                    Text("Reading the chat and spending tokens…")
+                        .font(.footnote)
+                        .foregroundStyle(MogTheme.muted)
+                }
+            }
+            if let err = service.error {
+                Text(err).font(.footnote).foregroundStyle(.red)
+            }
+        }
+    }
+
+    private var composer: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Goal", selection: $goal) {
+                Text("Evaluate").tag("evaluate")
+                Text("Reply").tag("reply")
+                Text("Strategy").tag("strategy")
+            }
+            .pickerStyle(.segmented)
+            if let chatImage {
+                HStack {
+                    Image(uiImage: chatImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Text("Screenshot attached — this turn bills vision tokens")
+                        .font(.caption)
+                        .foregroundStyle(MogTheme.gold)
+                    Spacer()
+                    Button("Remove") { chatImage = nil }
+                }
+            }
+            HStack(alignment: .bottom) {
+                TextField("Ask about the screenshot or paste a line", text: $text, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(2...5)
+                Button {
+                    Task { await ask() }
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(service.busy ? MogTheme.muted : MogTheme.gold)
+                }
+                .disabled(service.busy)
+            }
+            HStack {
+                Button { cameraOpen = true } label: {
+                    Label("Live shot", systemImage: "camera.fill")
+                }
+                PhotosPicker(selection: $pickerItem, matching: .images) {
+                    Label("Library", systemImage: "photo")
+                }
+                Spacer()
+                Text(service.usageText).font(.caption2).foregroundStyle(MogTheme.muted)
+            }
+            .font(.caption)
+        }
+        .padding(12)
+        .background(MogTheme.card)
     }
 
     private func hydrateFromSelected() {
@@ -149,12 +210,16 @@ struct WingmanView: View {
 
     private func ask() async {
         savePartner()
+        let outgoing = text
+        let image = chatImage
+        text = ""
+        chatImage = nil
         await service.advise(
             baseURL: appState.apiBaseURL,
             userKey: appState.userId ?? appState.handle,
             goal: goal,
-            text: text,
-            image: chatImage,
+            text: outgoing,
+            image: image,
             memory: partners.selected
         )
     }

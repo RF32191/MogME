@@ -8,7 +8,7 @@ const Body = z.object({
   userKey: z.string().min(1).max(80).optional(),
   goal: z.enum(["evaluate", "reply", "strategy"]).optional(),
   text: z.string().max(800).optional(),
-  imageDataUrl: z.string().max(420_000).optional(),
+  imageDataUrl: z.string().max(1_200_000).optional(),
   memory: z
     .object({
       name: z.string().max(40).optional(),
@@ -21,7 +21,7 @@ const Body = z.object({
     .optional(),
   history: z
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(280) }))
-    .max(6)
+    .max(10)
     .optional(),
 });
 

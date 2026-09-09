@@ -55,18 +55,27 @@ enum APIError: LocalizedError {
 }
 
 enum ImageCompressor {
-    /// Keeps Railway vision tokens cheap: long edge 768, JPEG ~0.55.
+    /// Chat screenshots stay readable but under Railway's vision budget (~180KB JPEG).
     static func jpegForWingman(_ image: UIImage) -> Data? {
-        let maxEdge: CGFloat = 768
-        let size = image.size
-        let longest = max(size.width, size.height)
-        let scale = longest > maxEdge ? maxEdge / longest : 1
-        let target = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
-        let renderer = UIGraphicsImageRenderer(size: target)
-        let rendered = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: target))
+        var maxEdge: CGFloat = 1024
+        var quality: CGFloat = 0.62
+        for _ in 0..<6 {
+            let size = image.size
+            guard size.width > 0, size.height > 0 else { return nil }
+            let longest = max(size.width, size.height)
+            let scale = longest > maxEdge ? maxEdge / longest : 1
+            let target = CGSize(width: max(1, (size.width * scale).rounded()), height: max(1, (size.height * scale).rounded()))
+            let renderer = UIGraphicsImageRenderer(size: target)
+            let rendered = renderer.image { _ in
+                image.draw(in: CGRect(origin: .zero, size: target))
+            }
+            if let data = rendered.jpegData(compressionQuality: quality), data.count <= 180_000 {
+                return data
+            }
+            maxEdge *= 0.82
+            quality = max(0.32, quality - 0.08)
         }
-        return rendered.jpegData(compressionQuality: 0.55)
+        return image.jpegData(compressionQuality: 0.32)
     }
 
     static func jpegForMeal(_ image: UIImage) -> Data? {

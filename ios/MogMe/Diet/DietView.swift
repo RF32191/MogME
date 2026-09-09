@@ -7,8 +7,6 @@ struct DietView: View {
     @StateObject private var model = DietSearchModel()
     @State private var cameraOpen = false
     @State private var pickerItem: PhotosPickerItem?
-    @State private var captured: UIImage?
-    @State private var showResults = false
 
     var body: some View {
         NavigationStack {
@@ -32,7 +30,7 @@ struct DietView: View {
                         MogCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Look up calories").font(.headline)
-                                Text("Search by food name, or snap a package/label. Calories come from Open Food Facts and the on-device catalog — no AI estimates.")
+                                Text("Take a live photo or search by name. We describe the plate, you can correct it, then calories come from Open Food Facts — not an AI guess.")
                                     .font(.footnote)
                                     .foregroundStyle(MogTheme.muted)
                                 HStack {
@@ -44,10 +42,8 @@ struct DietView: View {
                                         .frame(width: 110)
                                 }
                                 HStack(spacing: 10) {
-                                    Button {
-                                        cameraOpen = true
-                                    } label: {
-                                        Label("Photograph meal", systemImage: "camera.fill")
+                                    Button { cameraOpen = true } label: {
+                                        Label("Live photo", systemImage: "camera.fill")
                                     }
                                     .buttonStyle(.bordered)
                                     PhotosPicker(selection: $pickerItem, matching: .images) {
@@ -55,18 +51,9 @@ struct DietView: View {
                                     }
                                     .buttonStyle(.bordered)
                                 }
-                                if let captured {
-                                    Image(uiImage: captured)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(height: 140)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    Button("Find calories from this photo") {
-                                        Task { await model.searchFromPhoto(captured) }
-                                    }
-                                    .buttonStyle(GoldButtonStyle())
+                                if let captured = model.captured {
+                                    mealPhotoCard(captured)
                                 }
-                                if model.busy { ProgressView().tint(MogTheme.gold) }
                                 if let err = model.error { Text(err).font(.footnote).foregroundStyle(.red) }
                             }
                         }
@@ -75,8 +62,8 @@ struct DietView: View {
                             Text("Matches").font(.headline)
                             ForEach(model.hits) { hit in
                                 Button {
-                                    meals.log(hit: hit, image: captured)
-                                    captured = nil
+                                    meals.log(hit: hit, image: model.captured, note: model.description)
+                                    model.resetPhoto()
                                 } label: {
                                     foodRow(hit)
                                 }
@@ -101,7 +88,9 @@ struct DietView: View {
                                             Text("\(Int(meal.calories)) kcal · \(meal.serving)")
                                                 .font(.subheadline)
                                                 .foregroundStyle(MogTheme.muted)
-                                            Text(meal.source).font(.caption).foregroundStyle(MogTheme.muted)
+                                            if let note = meal.note, !note.isEmpty {
+                                                Text(note).font(.caption).foregroundStyle(MogTheme.gold)
+                                            }
                                         }
                                         Spacer()
                                         Button(role: .destructive) { meals.delete(meal) } label: {
@@ -117,17 +106,19 @@ struct DietView: View {
             }
             .navigationTitle("Diet")
             .fullScreenCover(isPresented: $cameraOpen) {
-                MealCameraView { image in
-                    captured = image
-                    cameraOpen = false
-                }
-                .ignoresSafeArea()
+                MealCameraView(
+                    onCapture: { image in
+                        cameraOpen = false
+                        Task { await model.acceptPhoto(image) }
+                    },
+                    onCancel: { cameraOpen = false }
+                )
             }
             .onChange(of: pickerItem) { _, item in
                 Task {
                     guard let item, let data = try? await item.loadTransferable(type: Data.self),
                           let image = UIImage(data: data) else { return }
-                    captured = image
+                    await model.acceptPhoto(image)
                 }
             }
             .onChange(of: appState.pendingFoodQuery) { _, query in
@@ -135,6 +126,46 @@ struct DietView: View {
                 model.query = query
                 appState.pendingFoodQuery = nil
                 Task { await model.searchByName() }
+            }
+        }
+    }
+
+    private func mealPhotoCard(_ captured: UIImage) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                Image(uiImage: captured)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 220)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                if model.busy {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.black.opacity(0.55))
+                    VStack(spacing: 10) {
+                        ProgressView().tint(MogTheme.gold).scaleEffect(1.3)
+                        Text(model.loadingMessage)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                }
+            }
+            Text("What we see — edit if it's wrong")
+                .font(.caption)
+                .foregroundStyle(MogTheme.muted)
+            TextField("Describe the food", text: $model.description, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(3...6)
+            HStack {
+                Button("Retake") { cameraOpen = true }
+                    .buttonStyle(.bordered)
+                Button("Use this description") {
+                    Task { await model.searchFromDescription() }
+                }
+                .buttonStyle(GoldButtonStyle(enabled: !model.busy && !model.description.trimmingCharacters(in: .whitespaces).isEmpty))
             }
         }
     }
@@ -170,12 +201,51 @@ final class DietSearchModel: ObservableObject {
     @Published var hits: [FoodHit] = []
     @Published var busy = false
     @Published var error: String?
+    @Published var captured: UIImage?
+    @Published var description = ""
+    @Published var loadingMessage = "Reading your meal…"
     private let lookup = FoodLookupService()
+
+    func resetPhoto() {
+        captured = nil
+        description = ""
+        hits = []
+        error = nil
+        loadingMessage = "Reading your meal…"
+    }
+
+    func acceptPhoto(_ image: UIImage) async {
+        captured = image
+        hits = []
+        error = nil
+        description = ""
+        busy = true
+        loadingMessage = "Reading the live photo…"
+        defer { busy = false }
+        let read = await lookup.readMealPhoto(image)
+        description = read.description.isEmpty ? read.suggestedName : read.description
+        query = read.suggestedName
+        loadingMessage = "Looking up calories…"
+        do {
+            let terms = description.isEmpty ? read.suggestedName : description
+            hits = try await lookup.searchFromDescription(terms)
+            if hits.isEmpty {
+                error = "No calorie match yet. Correct the description and tap Use this description."
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+        loadingMessage = "Reading your meal…"
+    }
 
     func searchByName() async {
         busy = true
         error = nil
-        defer { busy = false }
+        loadingMessage = "Searching foods…"
+        defer {
+            busy = false
+            loadingMessage = "Reading your meal…"
+        }
         do {
             hits = try await lookup.search(query: query)
             if hits.isEmpty { error = "No matches. Try a simpler food name." }
@@ -184,15 +254,17 @@ final class DietSearchModel: ObservableObject {
         }
     }
 
-    func searchFromPhoto(_ image: UIImage) async {
+    func searchFromDescription() async {
         busy = true
         error = nil
-        defer { busy = false }
+        loadingMessage = "Updating calories from your description…"
+        defer {
+            busy = false
+            loadingMessage = "Reading your meal…"
+        }
         do {
-            hits = try await lookup.searchFromLabelImage(image)
-            if hits.isEmpty {
-                error = "Could not read a product name from the photo. Type the food name instead."
-            }
+            hits = try await lookup.searchFromDescription(description)
+            if hits.isEmpty { error = "No matches for that description. Try a shorter food name." }
         } catch {
             self.error = error.localizedDescription
         }

@@ -53,4 +53,10 @@ final class FoodQueryTests: XCTestCase {
         """
         XCTAssertEqual(FoodLookupService.bestQuery(from: ocr), "KIND Dark Chocolate Nuts")
     }
+
+    func testDescriptionIsEditableSearchText() {
+        let read = FoodLookupService.composeDescription(ocr: "KIND Bar\nCalories 250", labels: ["granola bar", "food"])
+        XCTAssertTrue(read.description.contains("KIND Bar"))
+        XCTAssertEqual(FoodLookupService.searchTerms(from: read.description), "KIND Bar")
+    }
 }

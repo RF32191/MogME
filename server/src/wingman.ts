@@ -44,11 +44,14 @@ export interface WingmanRequest {
   history?: WingmanTurn[];
 }
 
+export const WINGMAN_IMAGE_MAX_CHARS = 1_200_000;
+
 export interface WingmanResult {
   ok: boolean;
   reason?: string;
   advice?: string;
   suggestedReplies?: string[];
+  sawImage?: boolean;
   usage?: {
     requestsToday: number;
     requestsRemaining: number;
@@ -91,7 +94,7 @@ function systemPrompt(goal: WingmanGoal, memory?: PartnerMemoryInput): string {
     "The user is asking for help impressing someone they are already talking to.",
     "HARD RULES: strictly non-explicit, no harassment, no manipulation-as-deception, no insults about anyone's body. Tasteful charm only.",
     "Use the local partner memory as context. Do not invent facts they did not provide.",
-    "If a chat screenshot is attached, read the visible messages and coach from that — do not describe the image at length.",
+    "If a chat screenshot is attached, transcribe the visible bubbles in your head and coach from those exact lines. Do not ignore the image. Do not spend the reply describing pixels.",
     GOAL_LINE[goal],
     "Respond ONLY as compact JSON: {\"advice\": string (<=3 short paragraphs), \"suggested_replies\": string[] (2-3 short texts the user could send)}.",
     "Partner memory:",
@@ -99,13 +102,18 @@ function systemPrompt(goal: WingmanGoal, memory?: PartnerMemoryInput): string {
   ].join("\n");
 }
 
-function sanitizeDataUrl(raw?: string): string | undefined {
-  if (!raw) return undefined;
+export type ImageCheck =
+  | { status: "none" }
+  | { status: "ok"; url: string }
+  | { status: "error"; reason: string };
+
+export function inspectImage(raw?: string): ImageCheck {
+  if (!raw) return { status: "none" };
   const trimmed = raw.trim();
-  if (!trimmed.startsWith("data:image/")) return undefined;
-  // ~400KB raw data URL keeps Railway + OpenAI vision cheap.
-  if (trimmed.length > 420_000) return undefined;
-  return trimmed;
+  if (!trimmed) return { status: "none" };
+  if (!trimmed.startsWith("data:image/")) return { status: "error", reason: "image-invalid" };
+  if (trimmed.length > WINGMAN_IMAGE_MAX_CHARS) return { status: "error", reason: "image-too-large" };
+  return { status: "ok", url: trimmed };
 }
 
 export function projectWingmanInputTokens(req: WingmanRequest): number {
@@ -115,14 +123,16 @@ export function projectWingmanInputTokens(req: WingmanRequest): number {
     .slice(-6)
     .map((m) => `${m.role}: ${m.content.slice(0, 280)}`)
     .join("\n");
-  const image = sanitizeDataUrl(req.imageDataUrl) ? TOKEN_PRICES.lowDetailImageTokens : 0;
+  const image = inspectImage(req.imageDataUrl).status === "ok" ? TOKEN_PRICES.lowDetailImageTokens : 0;
   return estimateTokensFromText(sys) + estimateTokensFromText(text) + estimateTokensFromText(history) + image;
 }
 
 export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult> {
   const userKey = req.userKey.slice(0, 80) || "anon";
   const text = (req.text ?? "").trim().slice(0, 800);
-  const image = sanitizeDataUrl(req.imageDataUrl);
+  const imageCheck = inspectImage(req.imageDataUrl);
+  if (imageCheck.status === "error") return { ok: false, reason: imageCheck.reason };
+  const image = imageCheck.status === "ok" ? imageCheck.url : undefined;
   if (!text && !image) return { ok: false, reason: "empty" };
 
   if (text) {
@@ -136,9 +146,9 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
 
   const client = getOpenAI();
   if (!client) {
-    const fallback = heuristicWingman(req.goal, text);
+    const fallback = heuristicWingman(req.goal, text, Boolean(image));
     const usage = wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
-    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage);
+    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image));
   }
 
   const history = (req.history ?? []).slice(-6).map((m) => ({
@@ -147,7 +157,12 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
   }));
 
   const userContent: OpenAI.Chat.ChatCompletionContentPart[] = [];
-  if (text) userContent.push({ type: "text", text });
+  userContent.push({
+    type: "text",
+    text: image
+      ? `${text || "Read every visible message in this screenshot and coach the next text."}\nThe image is a real conversation screenshot — use it.`
+      : text,
+  });
   if (image) {
     userContent.push({
       type: "image_url",
@@ -177,11 +192,11 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
     const inTok = completion.usage?.prompt_tokens ?? projected;
     const outTok = completion.usage?.completion_tokens ?? estimateTokensFromText(safeAdvice);
     const usage = wingmanBudget.record(userKey, inTok, outTok);
-    return withUsage(true, safeAdvice, safeSuggested, inTok, outTok, usage);
+    return withUsage(true, safeAdvice, safeSuggested, inTok, outTok, usage, Boolean(image));
   } catch {
-    const fallback = heuristicWingman(req.goal, text);
+    const fallback = heuristicWingman(req.goal, text, Boolean(image));
     const usage = wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
-    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage);
+    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image));
   }
 }
 
@@ -192,6 +207,7 @@ function withUsage(
   inputTokens: number,
   outputTokens: number,
   usage: ReturnType<DailyTokenBudget["record"]>,
+  sawImage = false,
 ): WingmanResult {
   const remaining = {
     requests: Math.max(0, config.wingmanDailyRequestCap - usage.requests),
@@ -201,6 +217,7 @@ function withUsage(
     ok,
     advice,
     suggestedReplies,
+    sawImage,
     usage: {
       requestsToday: usage.requests,
       requestsRemaining: remaining.requests,
@@ -216,7 +233,17 @@ function withUsage(
   };
 }
 
-export function heuristicWingman(goal: WingmanGoal, text: string): { advice: string; suggestedReplies: string[] } {
+export function heuristicWingman(goal: WingmanGoal, text: string, sawImage = false): { advice: string; suggestedReplies: string[] } {
+  if (sawImage && !text) {
+    return {
+      advice:
+        "I received the screenshot and billed this as a vision turn. The thread needs one specific callback to something they already said — then a question that is easy to answer.",
+      suggestedReplies: [
+        "Wait, go back to that thing you mentioned — what happened after?",
+        "Okay that actually made me smile. Tell me the rest.",
+      ],
+    };
+  }
   if (goal === "reply") {
     return {
       advice: "Mirror one specific detail they shared, then ask a follow-up that is easy to answer. Avoid stacking compliments.",

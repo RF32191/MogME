@@ -21,32 +21,49 @@ struct WingmanAdvice: Codable, Hashable {
     var reason: String?
     var advice: String?
     var suggestedReplies: [String]?
+    var sawImage: Bool?
     var usage: WingmanUsage?
 }
 
-struct WingmanChatTurn: Codable, Hashable {
+struct WingmanChatTurn: Identifiable, Hashable {
+    var id = UUID()
     var role: String
     var content: String
+    var image: UIImage?
+    var usageLine: String?
 }
 
 @MainActor
 final class WingmanService: ObservableObject {
-    @Published var advice = ""
     @Published var replies: [String] = []
-    @Published var usageText = "40 cheap gpt-4o-mini turns / day"
+    @Published var usageText = "Image reads spend tokens. ~85 vision tokens + reply."
+    @Published var lastUsage: WingmanUsage?
     @Published var busy = false
     @Published var error: String?
-    @Published var history: [WingmanChatTurn] = []
+    @Published var messages: [WingmanChatTurn] = []
+
+    var historyPayload: [[String: String]] {
+        messages.suffix(8).map { ["role": $0.role == "user" ? "user" : "assistant", "content": String($0.content.prefix(280))] }
+    }
 
     func advise(baseURL: URL, userKey: String, goal: String, text: String, image: UIImage?, memory: PartnerProfile?) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty || image != nil else {
+            error = "Add a chat screenshot or type what they said."
+            return
+        }
         busy = true
         error = nil
         defer { busy = false }
+
+        let userLine = trimmed.isEmpty ? "Read this chat screenshot and coach the next move." : trimmed
+        messages.append(WingmanChatTurn(role: "user", content: userLine, image: image))
+
         var body: [String: Any] = [
             "userKey": userKey,
             "goal": goal,
-            "text": text,
-            "history": history.suffix(6).map { ["role": $0.role, "content": $0.content] },
+            "text": userLine,
+            "history": historyPayload.dropLast(),
         ]
         if let memory {
             body["memory"] = [
@@ -58,7 +75,11 @@ final class WingmanService: ObservableObject {
                 "lastTopics": Array(memory.lastTopics.prefix(6)),
             ]
         }
-        if let image, let data = ImageCompressor.jpegForWingman(image) {
+        if let image {
+            guard let data = ImageCompressor.jpegForWingman(image) else {
+                error = "Could not compress that screenshot. Try cropping to the messages."
+                return
+            }
             body["imageDataUrl"] = "data:image/jpeg;base64,\(data.base64EncodedString())"
         }
         do {
@@ -66,34 +87,37 @@ final class WingmanService: ObservableObject {
             url.append(path: "wingman/advise")
             var req = URLRequest(url: url)
             req.httpMethod = "POST"
+            req.timeoutInterval = 60
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (data, response) = try await URLSession.shared.data(for: req)
             let decoded = try JSONDecoder().decode(WingmanAdvice.self, from: data)
             if let http = response as? HTTPURLResponse, http.statusCode == 429 {
-                error = "Daily wingman budget reached. \(decoded.reason ?? "")"
+                error = "Daily wingman token budget reached. \(decoded.reason ?? "")"
                 return
             }
             guard decoded.ok else {
                 error = decoded.reason ?? "Wingman declined that request."
                 return
             }
-            advice = decoded.advice ?? ""
             replies = decoded.suggestedReplies ?? []
+            lastUsage = decoded.usage
             if let usage = decoded.usage {
+                let imageNote = decoded.sawImage == true ? " · screenshot billed" : ""
                 usageText = String(
-                    format: "%d left today · $%.4f so far · this turn $%.4f",
+                    format: "%d left today · %d tokens this turn · $%.4f%@ ",
                     usage.requestsRemaining,
-                    usage.estimatedCostUsdToday,
-                    usage.thisRequest?.estimatedCostUsd ?? 0
+                    (usage.thisRequest?.inputTokens ?? 0) + (usage.thisRequest?.outputTokens ?? 0),
+                    usage.thisRequest?.estimatedCostUsd ?? 0,
+                    imageNote
                 )
             }
-            if !text.isEmpty {
-                history.append(WingmanChatTurn(role: "user", content: String(text.prefix(280))))
-            }
-            if !advice.isEmpty {
-                history.append(WingmanChatTurn(role: "assistant", content: String(advice.prefix(280))))
-            }
+            let advice = decoded.advice ?? ""
+            messages.append(WingmanChatTurn(
+                role: "assistant",
+                content: advice,
+                usageLine: usageText
+            ))
         } catch {
             self.error = error.localizedDescription
         }

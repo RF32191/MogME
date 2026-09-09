@@ -9,11 +9,11 @@ struct PaywallView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("MogMe Lifetime")
                     .font(.largeTitle.bold())
-                Text("App Store Connect product MogMe.Lifetime.60 (Apple ID 6758647492). The price on this screen is whatever Apple is serving — it is no longer hardcoded at $4.99.")
+                Text("One-time unlock for \(store.displayPrice). Apple Pay, card, and Restore all grant the same premium access.")
                     .foregroundStyle(MogTheme.muted)
                 MogCard {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("One-time unlock").font(.headline)
+                        Text("Lifetime").font(.headline)
                         Text(store.displayPrice)
                             .font(.system(size: 42, weight: .bold, design: .rounded))
                             .foregroundStyle(MogTheme.gold)
@@ -27,14 +27,20 @@ struct PaywallView: View {
                 } label: {
                     Text(store.isLoading ? "Working…" : "Unlock \(store.displayPrice)")
                 }
-                .buttonStyle(GoldButtonStyle(enabled: !store.isLoading && store.product != nil))
+                .buttonStyle(GoldButtonStyle(enabled: !store.isLoading))
                 Button("Restore purchase") { Task { await store.restore() } }
                     .frame(maxWidth: .infinity)
+                    .disabled(store.isLoading)
+                if store.product == nil, !store.isUnlocked {
+                    Text("If StoreKit has not loaded MogMe.Lifetime.60 yet, tap Unlock anyway — Debug builds grant premium so you can test, and Restore still applies a real App Store receipt.")
+                        .font(.footnote)
+                        .foregroundStyle(MogTheme.muted)
+                }
                 if let err = store.lastError {
                     Text(err).font(.footnote).foregroundStyle(.red)
                 }
                 if store.isUnlocked {
-                    Text("You're in. Lifetime is active on this Apple ID.")
+                    Text("Premium is unlocked on this device.")
                         .foregroundStyle(MogTheme.gold)
                 }
                 Spacer()
@@ -42,5 +48,6 @@ struct PaywallView: View {
             .padding(24)
         }
         .navigationTitle("Unlock")
+        .task { await store.load() }
     }
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DailyTokenBudget, estimateCostUsd, estimateTokensFromText } from "./tokens.js";
-import { heuristicWingman, projectWingmanInputTokens } from "./wingman.js";
+import { heuristicWingman, inspectImage, projectWingmanInputTokens } from "./wingman.js";
 
 test("token estimate is cheap and non-zero", () => {
   const tokens = estimateTokensFromText("hello wingman");
@@ -33,4 +33,27 @@ test("heuristic wingman always returns usable copy", () => {
   const reply = heuristicWingman("reply", "hey");
   assert.ok(reply.advice.length > 10);
   assert.ok(reply.suggestedReplies.length >= 2);
+});
+
+test("chat screenshots are accepted and add vision tokens", () => {
+  const url = `data:image/jpeg;base64,${"a".repeat(80)}`;
+  assert.equal(inspectImage(url).status, "ok");
+  assert.equal(inspectImage("not-an-image").status, "error");
+  const withImage = projectWingmanInputTokens({
+    userKey: "u",
+    goal: "evaluate",
+    text: "read this",
+    imageDataUrl: url,
+  });
+  const without = projectWingmanInputTokens({
+    userKey: "u",
+    goal: "evaluate",
+    text: "read this",
+  });
+  assert.ok(withImage - without === 85);
+});
+
+test("screenshot-only heuristic still bills as a vision turn", () => {
+  const shot = heuristicWingman("evaluate", "", true);
+  assert.match(shot.advice, /screenshot/i);
 });

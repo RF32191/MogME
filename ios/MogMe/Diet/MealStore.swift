@@ -28,7 +28,7 @@ final class MealStore: ObservableObject {
         return UIImage(data: data)
     }
 
-    func log(hit: FoodHit, image: UIImage?) {
+    func log(hit: FoodHit, image: UIImage?, note: String? = nil) {
         var filename: String?
         if let image, let data = ImageCompressor.jpegForMeal(image) {
             filename = "\(UUID().uuidString).jpg"
@@ -44,6 +44,7 @@ final class MealStore: ObservableObject {
             serving: hit.serving,
             source: hit.source,
             localImageName: filename,
+            note: note,
             createdAt: Date()
         )
         meals.insert(meal, at: 0)

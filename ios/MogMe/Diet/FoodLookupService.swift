@@ -32,12 +32,57 @@ actor FoodLookupService {
 
     /// Reads packaging / nutrition-label text, then searches by the extracted name.
     func searchFromLabelImage(_ image: UIImage) async throws -> [FoodHit] {
-        let text = await recognizeText(image)
-        let query = Self.bestQuery(from: text)
+        let read = await readMealPhoto(image)
+        let query = read.suggestedName.isEmpty ? read.description : read.suggestedName
         if query.count >= 2 {
             return try await search(query: query)
         }
         return []
+    }
+
+    func searchFromDescription(_ text: String) async throws -> [FoodHit] {
+        try await search(query: Self.searchTerms(from: text))
+    }
+
+    /// On-device description: Vision classification + OCR. Calories still come from the name search.
+    func readMealPhoto(_ image: UIImage) async -> MealPhotoRead {
+        async let ocr = recognizeText(image)
+        async let labels = classifyFood(image)
+        let text = await ocr
+        let tags = await labels
+        return Self.composeDescription(ocr: text, labels: tags)
+    }
+
+    static func composeDescription(ocr: String, labels: [String]) -> MealPhotoRead {
+        let product = bestQuery(from: ocr)
+        let foodLabels = labels.filter { !["food", "meal", "dish", "plate", "cuisine"].contains($0.lowercased()) }
+        let labelPhrase = foodLabels.prefix(3).joined(separator: ", ")
+        let suggested = product.count >= 2 ? product : (foodLabels.first ?? "")
+        var parts: [String] = []
+        if !suggested.isEmpty { parts.append(suggested) }
+        if !labelPhrase.isEmpty, !labelPhrase.localizedCaseInsensitiveContains(suggested) {
+            parts.append("Looks like \(labelPhrase).")
+        }
+        if product.count >= 2, !foodLabels.isEmpty {
+            parts.append("Label text was readable on the package.")
+        } else if product.isEmpty, foodLabels.isEmpty {
+            parts.append("Could not read a clear food name. Type what this is.")
+        }
+        return MealPhotoRead(
+            suggestedName: suggested,
+            description: parts.joined(separator: " "),
+            ocr: ocr
+        )
+    }
+
+    static func searchTerms(from text: String) -> String {
+        let cleaned = text
+            .replacingOccurrences(of: "Looks like ", with: "")
+            .replacingOccurrences(of: "Label text was readable on the package.", with: "")
+            .replacingOccurrences(of: "Could not read a clear food name. Type what this is.", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstLine = cleaned.split(whereSeparator: \.isNewline).first.map(String.init) ?? cleaned
+        return String(firstLine.prefix(64))
     }
 
     private func openFoodFacts(_ query: String) async throws -> [FoodHit] {
@@ -86,7 +131,7 @@ actor FoodLookupService {
     }
 
     private func recognizeText(_ image: UIImage) async -> String {
-        guard let cg = image.cgImage else { return "" }
+        guard let cg = image.orientedCGImage else { return "" }
         return await withCheckedContinuation { continuation in
             let request = VNRecognizeTextRequest { request, _ in
                 let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
@@ -101,6 +146,28 @@ actor FoodLookupService {
                     try handler.perform([request])
                 } catch {
                     continuation.resume(returning: "")
+                }
+            }
+        }
+    }
+
+    private func classifyFood(_ image: UIImage) async -> [String] {
+        guard let cg = image.orientedCGImage else { return [] }
+        return await withCheckedContinuation { continuation in
+            let request = VNClassifyImageRequest { request, _ in
+                let observations = (request.results as? [VNClassificationObservation]) ?? []
+                let names = observations
+                    .filter { $0.confidence >= 0.15 }
+                    .prefix(8)
+                    .map { $0.identifier.replacingOccurrences(of: "_", with: " ") }
+                continuation.resume(returning: Array(names))
+            }
+            let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try handler.perform([request])
+                } catch {
+                    continuation.resume(returning: [])
                 }
             }
         }
@@ -150,6 +217,19 @@ actor FoodLookupService {
         FoodHit(id: "chicken", name: "Chicken breast, cooked", brand: nil, calories: 165, protein: 31, carbs: 0, fat: 3.6, serving: "100 g", source: "MogMe catalog", imageURL: nil),
         FoodHit(id: "rice", name: "White rice, cooked", brand: nil, calories: 206, protein: 4.3, carbs: 45, fat: 0.4, serving: "1 cup", source: "MogMe catalog", imageURL: nil),
     ]
+}
+
+private extension UIImage {
+    /// Camera frames are often `.right`; Vision needs a drawn, upright bitmap.
+    var orientedCGImage: CGImage? {
+        if imageOrientation == .up, let cgImage { return cgImage }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+        return rendered.cgImage
+    }
 }
 
 private struct BundledFood: Decodable {

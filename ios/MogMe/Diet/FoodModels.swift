@@ -23,7 +23,14 @@ struct LoggedMeal: Identifiable, Codable, Hashable {
     var serving: String
     var source: String
     var localImageName: String?
+    var note: String?
     var createdAt: Date
+}
+
+struct MealPhotoRead: Sendable, Hashable {
+    var suggestedName: String
+    var description: String
+    var ocr: String
 }
 
 enum FoodLookupError: LocalizedError {
