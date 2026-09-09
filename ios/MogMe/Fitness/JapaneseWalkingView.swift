@@ -22,6 +22,7 @@ struct JapaneseWalkingView: View {
         workoutChrome
             .navigationTitle("IWT Walk")
             .navigationBarTitleDisplayMode(.inline)
+            .crownToolbar()
             .onAppear {
                 if appState.pendingWalkStart {
                     appState.pendingWalkStart = false

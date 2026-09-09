@@ -61,6 +61,7 @@ struct IntervalCardioView: View {
         }
         .navigationTitle("Interval Cardio")
         .navigationBarTitleDisplayMode(.inline)
+        .crownToolbar()
         .onAppear {
             if appState.pendingCardioStart {
                 appState.pendingCardioStart = false

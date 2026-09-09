@@ -7,6 +7,7 @@ struct DietView: View {
     @StateObject private var model = DietSearchModel()
     @State private var cameraOpen = false
     @State private var pickerItem: PhotosPickerItem?
+    @State private var expandedMealID: UUID?
 
     var body: some View {
         NavigationStack {
@@ -30,7 +31,7 @@ struct DietView: View {
                         MogCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Look up calories").font(.headline)
-                                Text("Take a live photo or search by name. We describe the plate, you can correct it, then calories come from Open Food Facts — not an AI guess.")
+                                Text("Choose a live or library photo. You get an item description plus full calorie analytics from Open Food Facts / USDA — not an AI calorie guess.")
                                     .font(.footnote)
                                     .foregroundStyle(MogTheme.muted)
                                 HStack {
@@ -59,7 +60,11 @@ struct DietView: View {
                         }
 
                         if let top = model.hits.first {
-                            analysisCard(top)
+                            FoodAnalysisCard(
+                                hit: top,
+                                photoDescription: model.description,
+                                photo: model.captured
+                            )
                         }
 
                         if !model.hits.isEmpty {
@@ -78,28 +83,45 @@ struct DietView: View {
                         if !meals.meals.isEmpty {
                             Text("Saved locally").font(.headline)
                             ForEach(meals.meals.prefix(20)) { meal in
-                                MogCard {
-                                    HStack(alignment: .top, spacing: 12) {
-                                        if let img = meals.image(for: meal) {
-                                            Image(uiImage: img)
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 56, height: 56)
-                                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                        }
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(meal.name).font(.headline)
-                                            Text("\(Int(meal.calories)) kcal · \(meal.serving)")
-                                                .font(.subheadline)
-                                                .foregroundStyle(MogTheme.muted)
-                                            if let note = meal.note, !note.isEmpty {
-                                                Text(note).font(.caption).foregroundStyle(MogTheme.gold)
+                                VStack(alignment: .leading, spacing: 10) {
+                                    MogCard {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            if let img = meals.image(for: meal) {
+                                                Image(uiImage: img)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 56, height: 56)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            }
+                                            Button {
+                                                expandedMealID = expandedMealID == meal.id ? nil : meal.id
+                                            } label: {
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(meal.name).font(.headline).foregroundStyle(.white)
+                                                    Text("\(Int(meal.calories)) kcal · \(meal.serving)")
+                                                        .font(.subheadline)
+                                                        .foregroundStyle(MogTheme.muted)
+                                                    if let note = meal.note, !note.isEmpty {
+                                                        Text(note).font(.caption).foregroundStyle(MogTheme.gold)
+                                                    }
+                                                    Text(expandedMealID == meal.id ? "Hide analytics" : "Full analytics")
+                                                        .font(.caption2.weight(.semibold))
+                                                        .foregroundStyle(MogTheme.gold)
+                                                }
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                            }
+                                            .buttonStyle(.plain)
+                                            Button(role: .destructive) { meals.delete(meal) } label: {
+                                                Image(systemName: "trash")
                                             }
                                         }
-                                        Spacer()
-                                        Button(role: .destructive) { meals.delete(meal) } label: {
-                                            Image(systemName: "trash")
-                                        }
+                                    }
+                                    if expandedMealID == meal.id {
+                                        FoodAnalysisCard(
+                                            hit: meal.asHit,
+                                            photoDescription: meal.note ?? "",
+                                            photo: meals.image(for: meal)
+                                        )
                                     }
                                 }
                             }
@@ -159,7 +181,7 @@ struct DietView: View {
                     .padding()
                 }
             }
-            Text("What we see — edit if it's wrong")
+            Text("Item description — edit if it's wrong")
                 .font(.caption)
                 .foregroundStyle(MogTheme.muted)
             TextField("Describe the food", text: $model.description, axis: .vertical)
@@ -174,31 +196,6 @@ struct DietView: View {
                 .buttonStyle(GoldButtonStyle(enabled: !model.busy && !model.description.trimmingCharacters(in: .whitespaces).isEmpty))
             }
         }
-    }
-
-    private func analysisCard(_ hit: FoodHit) -> some View {
-        MogCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Food analysis").font(.headline)
-                Text(hit.name).font(.title3.bold()).foregroundStyle(MogTheme.gold)
-                Text(hit.headline).font(.subheadline)
-                HStack {
-                    macro("kcal", "\(Int(hit.calories))")
-                    macro("P", hit.protein.map { "\(Int($0))g" } ?? "—")
-                    macro("C", hit.carbs.map { "\(Int($0))g" } ?? "—")
-                    macro("F", hit.fat.map { "\(Int($0))g" } ?? "—")
-                }
-                Text("\(hit.serving) · \(hit.source)").font(.caption).foregroundStyle(MogTheme.muted)
-            }
-        }
-    }
-
-    private func macro(_ label: String, _ value: String) -> some View {
-        VStack {
-            Text(value).font(.headline)
-            Text(label).font(.caption2).foregroundStyle(MogTheme.muted)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private func foodRow(_ hit: FoodHit) -> some View {

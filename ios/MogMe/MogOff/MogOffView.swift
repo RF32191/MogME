@@ -22,6 +22,7 @@ struct MogOffView: View {
             .padding(20)
         }
         .navigationTitle("Mog-Off")
+        .crownToolbar()
     }
 
     private func signIn() async {

@@ -48,6 +48,18 @@ final class WingmanService: ObservableObject {
     @Published var analysis: String = ""
     @Published var transcript: String = ""
     @Published var tone: String = ""
+    @Published var photoDescription: String = ""
+    @Published var lastPhoto: UIImage?
+    @Published var sawImage = false
+    @Published var tokensThisTurn = 0
+    @Published var costThisTurn = 0.0
+    @Published var requestsRemaining = 0
+    @Published var tokensRemaining = 0
+    @Published var costToday = 0.0
+
+    var hasAnalytics: Bool {
+        !analysis.isEmpty || !transcript.isEmpty || !photoDescription.isEmpty || lastUsage != nil
+    }
 
     var historyPayload: [[String: String]] {
         messages.suffix(8).map { ["role": $0.role == "user" ? "user" : "assistant", "content": String($0.content.prefix(280))] }
@@ -64,6 +76,7 @@ final class WingmanService: ObservableObject {
         defer { busy = false }
 
         let userLine = trimmed.isEmpty ? "Read this chat screenshot and coach the next move." : trimmed
+        if let image { lastPhoto = image }
         messages.append(WingmanChatTurn(role: "user", content: userLine, image: image))
 
         var ocrText = ""
@@ -116,8 +129,21 @@ final class WingmanService: ObservableObject {
             analysis = decoded.analysis ?? decoded.advice ?? ""
             transcript = decoded.transcript ?? ocrText
             tone = decoded.tone ?? ""
+            sawImage = decoded.sawImage == true
+            if !ocrText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                photoDescription = ocrText
+            } else if let transcript = decoded.transcript, !transcript.isEmpty {
+                photoDescription = transcript
+            } else {
+                photoDescription = analysis
+            }
             lastUsage = decoded.usage
             if let usage = decoded.usage {
+                tokensThisTurn = (usage.thisRequest?.inputTokens ?? 0) + (usage.thisRequest?.outputTokens ?? 0)
+                costThisTurn = usage.thisRequest?.estimatedCostUsd ?? 0
+                requestsRemaining = usage.requestsRemaining
+                tokensRemaining = usage.tokensRemaining
+                costToday = usage.estimatedCostUsdToday
                 let imageNote = decoded.sawImage == true ? " · screenshot billed" : ""
                 usageText = String(
                     format: "%d left today · %d tokens this turn · $%.4f%@ ",

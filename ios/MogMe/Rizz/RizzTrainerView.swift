@@ -56,6 +56,7 @@ struct RizzTrainerView: View {
             .padding(20)
         }
         .navigationTitle("Rizz Trainer")
+        .crownToolbar()
     }
 
     private var client: APIClient { APIClient(baseURL: appState.apiBaseURL) }

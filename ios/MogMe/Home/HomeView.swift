@@ -16,19 +16,22 @@ struct HomeView: View {
                                 Text("MogMe").font(.largeTitle.bold())
                                 Text("Looks, fitness, diet, and social — one lifestyle stack.")
                                     .foregroundStyle(MogTheme.muted)
-                                Text(store.isUnlocked ? "Lifetime unlocked" : "Lifetime \(StoreKitManager.listedPrice)")
+                                Text(store.isUnlocked ? "Lifetime unlocked · \(StoreKitManager.listedPrice)" : "Lifetime \(StoreKitManager.listedPrice)")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(MogTheme.gold)
                             }
                         }
 
-                        if !store.isUnlocked {
-                            Button { store.showPaywall = true } label: {
-                                Label("Unlock lifetime \(StoreKitManager.listedPrice)", systemImage: "crown.fill")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(GoldButtonStyle())
+                        Button { store.showPaywall = true } label: {
+                            Label(
+                                store.isUnlocked
+                                    ? "Membership · Lifetime \(StoreKitManager.listedPrice)"
+                                    : "Unlock lifetime \(StoreKitManager.listedPrice)",
+                                systemImage: "crown.fill"
+                            )
+                            .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(GoldButtonStyle())
 
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             quick("Diet", "\(Int(meals.todayCalories)) kcal today", .diet, "fork.knife")

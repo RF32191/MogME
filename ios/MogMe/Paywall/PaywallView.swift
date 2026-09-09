@@ -6,48 +6,81 @@ struct PaywallView: View {
     var body: some View {
         ZStack {
             MogTheme.backgroundGradient.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 18) {
-                Text("MogMe Lifetime")
-                    .font(.largeTitle.bold())
-                Text("MogMe.Lifetime.60 is the lifetime SKU. It is \(StoreKitManager.listedPrice) — not $60. Apple Pay, card, and Restore all unlock the same premium.")
-                    .foregroundStyle(MogTheme.muted)
-                MogCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Lifetime").font(.headline)
-                        Text(store.displayPrice)
-                            .font(.system(size: 42, weight: .bold, design: .rounded))
-                            .foregroundStyle(MogTheme.gold)
-                        Text("Japanese walking, interval GPS, diet log, wingman, rizz trainer, companion, mog-off.")
-                            .font(.subheadline)
-                            .foregroundStyle(MogTheme.muted)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Membership")
+                        .font(.largeTitle.bold())
+                    Text("The crown stays on every screen. Open it anytime to see what you own.")
+                        .foregroundStyle(MogTheme.muted)
+
+                    MogCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Image(systemName: "crown.fill").foregroundStyle(MogTheme.gold)
+                                Text(store.isUnlocked ? "You’re subscribed" : "Not subscribed")
+                                    .font(.headline)
+                                Spacer()
+                                Text(store.isUnlocked ? "Lifetime" : "Free")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(MogTheme.gold)
+                            }
+                            Text("Lifetime")
+                                .font(.title2.bold())
+                                .foregroundStyle(MogTheme.gold)
+                            Text(StoreKitManager.listedPrice)
+                                .font(.system(size: 42, weight: .bold, design: .rounded))
+                                .foregroundStyle(MogTheme.gold)
+                            Text("New listed price for MogMe.Lifetime.60 — not $60.")
+                                .font(.footnote)
+                                .foregroundStyle(MogTheme.muted)
+
+                            row("Plan", store.isUnlocked ? "Lifetime unlock" : "None yet")
+                            row("Product", StoreKitManager.lifetimeProductID)
+                            row("Price", StoreKitManager.listedPrice)
+                            row("Apple ID", "6758647492")
+                            row("Status", store.isUnlocked ? "Unlocked on this Apple ID" : "Locked — tap Unlock lifetime")
+                        }
+                    }
+
+                    MogCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Lifetime includes").font(.headline)
+                            Text("Japanese walking, interval GPS, diet photo analytics, wingman screenshot analysis, rizz trainer, companion, mog-off.")
+                                .font(.subheadline)
+                                .foregroundStyle(MogTheme.muted)
+                        }
+                    }
+
+                    if !store.isUnlocked {
+                        Button {
+                            Task { await store.purchase() }
+                        } label: {
+                            Text(store.isLoading ? "Working…" : "Unlock lifetime \(StoreKitManager.listedPrice)")
+                        }
+                        .buttonStyle(GoldButtonStyle(enabled: !store.isLoading))
+                    }
+
+                    Button("Restore purchase") { Task { await store.restore() } }
+                        .frame(maxWidth: .infinity)
+                        .disabled(store.isLoading)
+
+                    if let err = store.lastError {
+                        Text(err).font(.footnote).foregroundStyle(.red)
                     }
                 }
-                Button {
-                    Task { await store.purchase() }
-                } label: {
-                    Text(store.isLoading ? "Working…" : "Unlock \(store.displayPrice)")
-                }
-                .buttonStyle(GoldButtonStyle(enabled: !store.isLoading))
-                Button("Restore purchase") { Task { await store.restore() } }
-                    .frame(maxWidth: .infinity)
-                    .disabled(store.isLoading)
-                if store.product == nil, !store.isUnlocked {
-                    Text("If the $4.99 product is missing, enable Products.storekit on the MogMe scheme (Debug) or Restore a real App Store receipt.")
-                        .font(.footnote)
-                        .foregroundStyle(MogTheme.muted)
-                }
-                if let err = store.lastError {
-                    Text(err).font(.footnote).foregroundStyle(.red)
-                }
-                if store.isUnlocked {
-                    Text("Premium is unlocked on this device.")
-                        .foregroundStyle(MogTheme.gold)
-                }
-                Spacer()
+                .padding(24)
             }
-            .padding(24)
         }
-        .navigationTitle("Unlock")
+        .navigationTitle("Membership")
         .task { await store.load() }
+    }
+
+    private func row(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .top) {
+            Text(label).foregroundStyle(MogTheme.muted)
+            Spacer()
+            Text(value).multilineTextAlignment(.trailing)
+        }
+        .font(.subheadline)
     }
 }

@@ -43,6 +43,7 @@ struct CompanionView: View {
             .padding(20)
         }
         .navigationTitle("Companion")
+        .crownToolbar()
     }
 
     private func send() async {

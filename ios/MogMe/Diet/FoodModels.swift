@@ -28,11 +28,33 @@ struct LoggedMeal: Identifiable, Codable, Hashable {
     var protein: Double?
     var carbs: Double?
     var fat: Double?
+    var fiber: Double?
+    var sugars: Double?
+    var sodium: Double?
     var serving: String
     var source: String
     var localImageName: String?
     var note: String?
     var createdAt: Date
+
+    var asHit: FoodHit {
+        FoodHit(
+            id: id.uuidString,
+            name: name,
+            brand: nil,
+            calories: calories,
+            protein: protein,
+            carbs: carbs,
+            fat: fat,
+            fiber: fiber,
+            sugars: sugars,
+            sodium: sodium,
+            serving: serving,
+            source: source,
+            imageURL: nil,
+            analysis: nil
+        )
+    }
 }
 
 struct MealPhotoRead: Sendable, Hashable {

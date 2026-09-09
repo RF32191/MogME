@@ -30,20 +30,22 @@ struct WingmanView: View {
             }
         }
         .navigationTitle("AI Wingman")
+        .crownToolbar()
         .onAppear { hydrateFromSelected() }
         .fullScreenCover(isPresented: $cameraOpen) {
             MealCameraView(
                 onCapture: { image in
-                    chatImage = image
                     cameraOpen = false
+                    Task { await attachAndAnalyze(image) }
                 },
                 onCancel: { cameraOpen = false }
             )
         }
         .onChange(of: pickerItem) { _, item in
             Task {
-                guard let item, let data = try? await item.loadTransferable(type: Data.self) else { return }
-                chatImage = UIImage(data: data)
+                guard let item, let data = try? await item.loadTransferable(type: Data.self),
+                      let image = UIImage(data: data) else { return }
+                await attachAndAnalyze(image)
             }
         }
         .onChange(of: appState.pendingWingmanPrompt) { _, prompt in
@@ -58,7 +60,7 @@ struct WingmanView: View {
         MogCard {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Who you're texting").font(.headline)
-                Text("Saved on this iPhone. Each screenshot you send is a real vision turn and spends tokens.")
+                Text("Pick a live or library screenshot. Wingman describes the photo, then returns full analytics for the chat. Each image read spends tokens.")
                     .font(.footnote)
                     .foregroundStyle(MogTheme.muted)
                 TextField("Name", text: $name).textFieldStyle(.roundedBorder)
@@ -76,9 +78,9 @@ struct WingmanView: View {
 
     private var conversation: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if service.messages.isEmpty {
+            if service.messages.isEmpty && !service.hasAnalytics {
                 MogCard {
-                    Text("Drop a live screenshot of the chat. Wingman reads the bubbles, answers in this thread, and the turn is billed.")
+                    Text("Choose a chat screenshot. You get an item description of what’s in the photo plus full analytics — tone, transcript, strategy, and token cost.")
                         .foregroundStyle(MogTheme.muted)
                 }
             }
@@ -101,20 +103,8 @@ struct WingmanView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: message.role == "user" ? .trailing : .leading)
             }
-            if !service.analysis.isEmpty {
-                MogCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("AI analysis").font(.headline)
-                        if !service.tone.isEmpty {
-                            Text("Tone: \(service.tone)").font(.caption).foregroundStyle(MogTheme.gold)
-                        }
-                        Text(service.analysis)
-                        if !service.transcript.isEmpty {
-                            Text("From the screenshot").font(.caption.bold()).padding(.top, 4)
-                            Text(service.transcript).font(.footnote).foregroundStyle(MogTheme.muted)
-                        }
-                    }
-                }
+            if service.hasAnalytics {
+                WingmanPhotoAnalyticsCard(service: service, photo: chatImage ?? service.lastPhoto)
             }
             if !service.replies.isEmpty {
                 Text("Try sending").font(.subheadline.bold())
@@ -134,7 +124,7 @@ struct WingmanView: View {
             if service.busy {
                 HStack(spacing: 8) {
                     ProgressView().tint(MogTheme.gold)
-                    Text("Reading the chat and spending tokens…")
+                    Text("Reading the photo and filling analytics…")
                         .font(.footnote)
                         .foregroundStyle(MogTheme.muted)
                 }
@@ -160,7 +150,7 @@ struct WingmanView: View {
                         .scaledToFill()
                         .frame(width: 56, height: 56)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
-                    Text("Screenshot attached — this turn bills vision tokens")
+                    Text(service.busy ? "Analyzing photo…" : "Screenshot attached — this turn bills vision tokens")
                         .font(.caption)
                         .foregroundStyle(MogTheme.gold)
                     Spacer()
@@ -168,7 +158,7 @@ struct WingmanView: View {
                 }
             }
             HStack(alignment: .bottom) {
-                TextField("Ask about the screenshot or paste a line", text: $text, axis: .vertical)
+                TextField("Ask a follow-up, or add a line", text: $text, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...5)
                 Button {
@@ -223,6 +213,20 @@ struct WingmanView: View {
         }
     }
 
+    private func attachAndAnalyze(_ image: UIImage) async {
+        savePartner()
+        chatImage = image
+        await service.advise(
+            baseURL: appState.apiBaseURL,
+            userKey: appState.userId ?? appState.handle,
+            goal: goal,
+            text: "Describe this photo in detail, then give full analytics of the chat: who is speaking, tone, what’s working, risks, and the next move.",
+            image: image,
+            memory: partners.selected
+        )
+        chatImage = nil
+    }
+
     private func ask() async {
         savePartner()
         let outgoing = text
@@ -237,5 +241,68 @@ struct WingmanView: View {
             image: image,
             memory: partners.selected
         )
+    }
+}
+
+struct WingmanPhotoAnalyticsCard: View {
+    @ObservedObject var service: WingmanService
+    var photo: UIImage?
+
+    var body: some View {
+        MogCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Photo analysis").font(.headline)
+                if let photo {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                if !service.photoDescription.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Item description").font(.caption.weight(.semibold)).foregroundStyle(MogTheme.muted)
+                        Text(service.photoDescription)
+                    }
+                }
+                if !service.tone.isEmpty {
+                    Text("Tone: \(service.tone)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(MogTheme.gold)
+                }
+                if !service.analysis.isEmpty {
+                    Text(service.analysis)
+                }
+                if !service.transcript.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("From the screenshot").font(.caption.bold())
+                        Text(service.transcript).font(.footnote).foregroundStyle(MogTheme.muted)
+                    }
+                }
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    stat("Saw photo", service.sawImage ? "Yes" : "No")
+                    stat("Tokens", "\(service.tokensThisTurn)")
+                    stat("This turn", String(format: "$%.4f", service.costThisTurn))
+                    stat("Left today", "\(service.requestsRemaining)")
+                    stat("Token pool", "\(service.tokensRemaining)")
+                    stat("Today $", String(format: "$%.4f", service.costToday))
+                }
+            }
+        }
+    }
+
+    private func stat(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(MogTheme.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(8)
+        .background(MogTheme.goldSoft)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
