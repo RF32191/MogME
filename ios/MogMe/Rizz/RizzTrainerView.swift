@@ -50,6 +50,9 @@ struct RizzTrainerView: View {
                     Button("Send") { Task { await send() } }
                         .buttonStyle(GoldButtonStyle(enabled: sessionId != nil && !busy))
                 }
+                Text(appState.aiQuota.line)
+                    .font(.caption)
+                    .foregroundStyle(MogTheme.muted)
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
                 Spacer()
             }
@@ -84,7 +87,15 @@ struct RizzTrainerView: View {
         busy = true
         defer { busy = false }
         do {
-            let res: TurnRes = try await client.post("rizz/practice/message", body: ["sessionId": sessionId, "text": text])
+            let res: TurnRes = try await client.post(
+                "rizz/practice/message",
+                body: ["sessionId": sessionId, "text": text, "userKey": appState.userId ?? appState.handle]
+            )
+            if let usage = res.usage { appState.aiQuota.apply(usage) }
+            if res.ok == false, res.reason == "daily-request-cap" || res.reason == "daily-token-cap" {
+                error = "Daily AI limit reached. Rizz Trainer is not unlimited."
+                return
+            }
             reply = res.reply ?? reply
             tip = res.tip ?? ""
             affection = res.affection
@@ -102,9 +113,12 @@ struct RizzTrainerView: View {
     }
 
     private struct TurnRes: Decodable {
+        let ok: Bool?
+        let reason: String?
         let reply: String?
         let tip: String?
         let affection: Int
         let won: Bool?
+        let usage: AIUsageSnapshot?
     }
 }

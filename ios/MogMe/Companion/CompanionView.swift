@@ -32,11 +32,17 @@ struct CompanionView: View {
                         }
                     }
                 }
+                Text(appState.aiQuota.line)
+                    .font(.caption)
+                    .foregroundStyle(MogTheme.muted)
+                if let err = appState.aiQuota.lastError {
+                    Text(err).font(.footnote).foregroundStyle(.red)
+                }
                 HStack {
                     TextField("Message", text: $draft, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                     Button("Send") { Task { await send() } }
-                        .buttonStyle(GoldButtonStyle(enabled: !busy))
+                        .buttonStyle(GoldButtonStyle(enabled: !busy && !appState.aiQuota.isExhausted))
                         .frame(width: 90)
                 }
             }
@@ -59,16 +65,33 @@ struct CompanionView: View {
                 let age: Int
                 let tone: String
             }
+            let userKey: String
             let persona: Persona
             let text: String
         }
-        struct Res: Decodable { let ok: Bool; let reply: String }
+        struct Res: Decodable {
+            let ok: Bool
+            let reply: String
+            let reason: String?
+            let usage: AIUsageSnapshot?
+        }
         do {
             let res: Res = try await APIClient(baseURL: appState.apiBaseURL).post(
                 "companion/message",
-                body: Body(persona: .init(name: name, age: 24, tone: tone), text: text)
+                body: Body(
+                    userKey: appState.userId ?? appState.handle,
+                    persona: .init(name: name, age: 24, tone: tone),
+                    text: text
+                )
             )
-            log.append("\(name): \(res.reply)")
+            if let usage = res.usage { appState.aiQuota.apply(usage) }
+            if res.ok {
+                log.append("\(name): \(res.reply)")
+            } else {
+                log.append(res.reason == "daily-request-cap" || res.reason == "daily-token-cap"
+                    ? "Daily AI limit reached. Companion is not unlimited."
+                    : (res.reply.isEmpty ? (res.reason ?? "Blocked") : res.reply))
+            }
         } catch {
             log.append("Couldn't reach companion: \(error.localizedDescription)")
         }

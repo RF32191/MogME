@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { adviseWingman, wingmanBudget, type WingmanGoal } from "../wingman.js";
+import { adviseWingman, type WingmanGoal } from "../wingman.js";
+import { aiBudget, aiUsagePayload } from "../tokens.js";
 
 export const wingmanRouter = Router();
 
@@ -57,9 +58,13 @@ wingmanRouter.post("/advise", async (req, res) => {
   res.json(result);
 });
 
+function usageResponse(userKey: string) {
+  const used = aiBudget.snapshot(userKey);
+  const remaining = aiBudget.remaining(userKey);
+  return { used, remaining, usage: aiUsagePayload(userKey) };
+}
+
 wingmanRouter.get("/usage", (req, res) => {
   const userKey = String(req.query.userKey ?? "anon").slice(0, 80);
-  const used = wingmanBudget.snapshot(userKey);
-  const remaining = wingmanBudget.remaining(userKey);
-  res.json({ used, remaining });
+  res.json(usageResponse(userKey));
 });

@@ -23,6 +23,12 @@ struct RootView: View {
                 .tag(AppState.Tab.play)
         }
         .tint(MogTheme.gold)
+        .overlay(alignment: .topTrailing) {
+            CrownButton()
+                .padding(.top, 2)
+                .padding(.trailing, 6)
+                .accessibilityIdentifier("alwaysOnCrown")
+        }
         .sheet(isPresented: $store.showPaywall) {
             NavigationStack {
                 PaywallView()

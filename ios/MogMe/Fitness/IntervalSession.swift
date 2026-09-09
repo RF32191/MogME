@@ -46,6 +46,42 @@ enum WorkoutPresets {
     }
 }
 
+/// Wall-clock catch-up so a backgrounded walk/cardio can skip finished
+/// intervals and complete without the UI staying open.
+enum WorkoutTimeline {
+    struct Snapshot: Equatable, Sendable {
+        var index: Int
+        var remaining: Int
+        var elapsed: Int
+        var burned: Double
+        var finished: Bool
+    }
+
+    static func snapshot(elapsed: Int, blocks: [IntervalBlock], kg: Double) -> Snapshot {
+        guard !blocks.isEmpty else {
+            return Snapshot(index: 0, remaining: 0, elapsed: max(0, elapsed), burned: 0, finished: true)
+        }
+        let t = max(0, elapsed)
+        let total = blocks.reduce(0) { $0 + $1.seconds }
+        if t >= total {
+            let kcal = blocks.reduce(0.0) { $0 + WorkoutPresets.calories(mets: $1.mets, kg: kg, seconds: $1.seconds) }
+            return Snapshot(index: max(0, blocks.count - 1), remaining: 0, elapsed: t, burned: kcal, finished: true)
+        }
+        var consumed = 0
+        var kcal = 0.0
+        for (i, block) in blocks.enumerated() {
+            if t < consumed + block.seconds {
+                let used = t - consumed
+                kcal += WorkoutPresets.calories(mets: block.mets, kg: kg, seconds: used)
+                return Snapshot(index: i, remaining: block.seconds - used, elapsed: t, burned: kcal, finished: false)
+            }
+            kcal += WorkoutPresets.calories(mets: block.mets, kg: kg, seconds: block.seconds)
+            consumed += block.seconds
+        }
+        return Snapshot(index: blocks.count - 1, remaining: 0, elapsed: t, burned: kcal, finished: true)
+    }
+}
+
 struct SavedWorkout: Identifiable, Codable, Hashable {
     var id: UUID
     var kind: WorkoutKind

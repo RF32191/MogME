@@ -57,3 +57,26 @@ test("screenshot-only heuristic still bills as a vision turn", () => {
   const shot = heuristicWingman("evaluate", "", true);
   assert.match(shot.advice, /screenshot/i);
 });
+
+test("shared AI budget is not unlimited across features", async () => {
+  const { companionReply } = await import("./companion.js");
+  const { practiceTurn, startPractice } = await import("./practice.js");
+  const key = `cap-${Date.now()}`;
+  const { aiBudget } = await import("./tokens.js");
+  for (let i = 0; i < 15; i++) {
+    aiBudget.record(key, 10, 10);
+  }
+  const companion = await companionReply(
+    { name: "Avery", age: 24, tone: "friend" },
+    [],
+    "hey",
+    key,
+  );
+  assert.equal(companion.ok, false);
+  assert.equal(companion.reason, "daily-request-cap");
+
+  const session = startPractice("open", "easy");
+  const rizz = await practiceTurn(session, "hey there, how is your week going?", key);
+  assert.equal(rizz.ok, false);
+  assert.equal(rizz.reason, "daily-request-cap");
+});

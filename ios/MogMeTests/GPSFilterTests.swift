@@ -44,6 +44,24 @@ final class GPSFilterTests: XCTestCase {
     }
 }
 
+final class WorkoutTimelineTests: XCTestCase {
+    func testCatchUpSkipsFinishedIntervalsWhileBackgrounded() {
+        let blocks = WorkoutPresets.intervalCardio(workSec: 60, restSec: 60, rounds: 2)
+        let snap = WorkoutTimeline.snapshot(elapsed: 130, blocks: blocks, kg: 75)
+        XCTAssertEqual(snap.index, 2)
+        XCTAssertFalse(snap.finished)
+        XCTAssertEqual(snap.remaining, 50)
+    }
+
+    func testWorkoutCompletesFromWallClockWithoutTheScreen() {
+        let blocks = WorkoutPresets.japaneseWalking(cycles: 1)
+        let snap = WorkoutTimeline.snapshot(elapsed: 360, blocks: blocks, kg: 75)
+        XCTAssertTrue(snap.finished)
+        XCTAssertEqual(snap.remaining, 0)
+        XCTAssertGreaterThan(snap.burned, 0)
+    }
+}
+
 final class FoodQueryTests: XCTestCase {
     func testPrefersProductNameOverNutritionHeading() {
         let ocr = """

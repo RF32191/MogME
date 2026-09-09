@@ -2,7 +2,6 @@ import SwiftUI
 
 struct TrainView: View {
     @EnvironmentObject private var appState: AppState
-    @StateObject private var history = WorkoutHistoryStore()
     @State private var openWalk = false
     @State private var openCardio = false
 
@@ -12,31 +11,37 @@ struct TrainView: View {
                 MogTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 14) {
+                        if appState.walkRuntime.isRunning {
+                            liveBanner("Japanese walk is still tracking", tab: { openWalk = true })
+                        }
+                        if appState.cardioRuntime.isRunning {
+                            liveBanner("Interval cardio is still tracking", tab: { openCardio = true })
+                        }
                         NavigationLink {
-                            JapaneseWalkingView(history: history)
+                            JapaneseWalkingView()
                         } label: {
                             workoutCard(
                                 "Japanese Walking",
-                                "3 min brisk / 3 min easy. Thread-safe GPS, pace, and route.",
+                                "3 min brisk / 3 min easy. Keeps GPS and intervals going if you leave the app.",
                                 "figure.walk.motion"
                             )
                         }
                         NavigationLink {
-                            IntervalCardioView(history: history)
+                            IntervalCardioView()
                         } label: {
                             workoutCard(
                                 "Interval Cardio",
-                                "Work/rest GPS session with filtered points so the map no longer jumps or crashes.",
+                                "Work/rest GPS on a background thread. Completes even if you lock the phone.",
                                 "figure.run"
                             )
                         }
 
-                        if !history.items.isEmpty {
+                        if !appState.workouts.items.isEmpty {
                             Text("Recent sessions")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.top, 8)
-                            ForEach(history.items.prefix(8)) { item in
+                            ForEach(appState.workouts.items.prefix(8)) { item in
                                 MogCard {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(item.kind.title).font(.headline)
@@ -57,16 +62,32 @@ struct TrainView: View {
             .navigationTitle("Train")
             .crownToolbar()
             .navigationDestination(isPresented: $openWalk) {
-                JapaneseWalkingView(history: history)
+                JapaneseWalkingView()
             }
             .navigationDestination(isPresented: $openCardio) {
-                IntervalCardioView(history: history)
+                IntervalCardioView()
             }
             .onAppear {
                 if appState.pendingWalkStart { openWalk = true }
                 if appState.pendingCardioStart { openCardio = true }
             }
+            .onReceive(appState.walkRuntime.objectWillChange) { _ in }
+            .onReceive(appState.cardioRuntime.objectWillChange) { _ in }
         }
+    }
+
+    private func liveBanner(_ title: String, tab: @escaping () -> Void) -> some View {
+        Button(action: tab) {
+            MogCard {
+                HStack {
+                    Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(MogTheme.gold)
+                    Text(title).font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text("Open").font(.caption).foregroundStyle(MogTheme.gold)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private func workoutCard(_ title: String, _ subtitle: String, _ icon: String) -> some View {

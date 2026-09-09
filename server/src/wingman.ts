@@ -2,9 +2,11 @@ import OpenAI from "openai";
 import { config } from "./config.js";
 import { moderateText } from "./moderation.js";
 import {
-  DailyTokenBudget,
+  aiBudget,
+  aiUsagePayload,
   estimateTokensFromText,
   TOKEN_PRICES,
+  type AIUsagePayload,
 } from "./tokens.js";
 
 let openai: OpenAI | null = null;
@@ -14,10 +16,7 @@ function getOpenAI(): OpenAI | null {
   return openai;
 }
 
-export const wingmanBudget = new DailyTokenBudget({
-  dailyRequestCap: config.wingmanDailyRequestCap,
-  dailyTokenCap: config.wingmanDailyTokenCap,
-});
+export const wingmanBudget = aiBudget;
 
 export type WingmanGoal = "evaluate" | "reply" | "strategy";
 
@@ -56,14 +55,7 @@ export interface WingmanResult {
   tone?: string;
   suggestedReplies?: string[];
   sawImage?: boolean;
-  usage?: {
-    requestsToday: number;
-    requestsRemaining: number;
-    tokensToday: number;
-    tokensRemaining: number;
-    estimatedCostUsdToday: number;
-    thisRequest: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
-  };
+  usage?: AIUsagePayload;
 }
 
 const GOAL_LINE: Record<WingmanGoal, string> = {
@@ -147,13 +139,13 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
 
   const projected = projectWingmanInputTokens({ ...req, imageDataUrl: image });
   const gate = wingmanBudget.canSpend(userKey, projected);
-  if (!gate.ok) return { ok: false, reason: gate.reason };
+  if (!gate.ok) return { ok: false, reason: gate.reason, usage: aiUsagePayload(userKey) };
 
   const client = getOpenAI();
   if (!client) {
     const fallback = heuristicWingman(req.goal, text || ocrText, Boolean(image || ocrText), ocrText);
-    const usage = wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
-    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image || ocrText), fallback);
+    wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
+    return withUsage(userKey, true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), Boolean(image || ocrText), fallback);
   }
 
   const history = (req.history ?? []).slice(-6).map((m) => ({
@@ -206,8 +198,8 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
     const safeSuggested = outMod.approved ? suggested : ["How did that thing you mentioned go?", "That actually made me smile — tell me more."];
     const inTok = completion.usage?.prompt_tokens ?? projected;
     const outTok = completion.usage?.completion_tokens ?? estimateTokensFromText(safeAdvice);
-    const usage = wingmanBudget.record(userKey, inTok, outTok);
-    return withUsage(true, safeAdvice, safeSuggested, inTok, outTok, usage, Boolean(image || ocrText), {
+    wingmanBudget.record(userKey, inTok, outTok);
+    return withUsage(userKey, true, safeAdvice, safeSuggested, inTok, outTok, Boolean(image || ocrText), {
       advice: safeAdvice,
       suggestedReplies: safeSuggested,
       analysis: safeAdvice,
@@ -216,25 +208,21 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
     });
   } catch {
     const fallback = heuristicWingman(req.goal, text || ocrText, Boolean(image || ocrText), ocrText);
-    const usage = wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
-    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image || ocrText), fallback);
+    wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
+    return withUsage(userKey, true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), Boolean(image || ocrText), fallback);
   }
 }
 
 function withUsage(
+  userKey: string,
   ok: boolean,
   advice: string,
   suggestedReplies: string[],
   inputTokens: number,
   outputTokens: number,
-  usage: ReturnType<DailyTokenBudget["record"]>,
   sawImage = false,
   extra?: { advice: string; suggestedReplies: string[]; analysis?: string; transcript?: string; tone?: string },
 ): WingmanResult {
-  const remaining = {
-    requests: Math.max(0, config.wingmanDailyRequestCap - usage.requests),
-    tokens: Math.max(0, config.wingmanDailyTokenCap - usage.inputTokens - usage.outputTokens),
-  };
   return {
     ok,
     advice,
@@ -243,18 +231,7 @@ function withUsage(
     tone: extra?.tone,
     suggestedReplies,
     sawImage,
-    usage: {
-      requestsToday: usage.requests,
-      requestsRemaining: remaining.requests,
-      tokensToday: usage.inputTokens + usage.outputTokens,
-      tokensRemaining: remaining.tokens,
-      estimatedCostUsdToday: Number(usage.estimatedCostUsd.toFixed(5)),
-      thisRequest: {
-        inputTokens,
-        outputTokens,
-        estimatedCostUsd: Number(((inputTokens / 1e6) * 0.15 + (outputTokens / 1e6) * 0.6).toFixed(5)),
-      },
-    },
+    usage: aiUsagePayload(userKey, { inputTokens, outputTokens }),
   };
 }
 

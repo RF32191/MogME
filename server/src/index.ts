@@ -9,6 +9,7 @@ import { companionRouter } from "./routes/companion.js";
 import { trendsRouter } from "./routes/trends.js";
 import { wingmanRouter } from "./routes/wingman.js";
 import { foodRouter } from "./routes/food.js";
+import { aiBudget, aiUsagePayload } from "./tokens.js";
 import { attachWebSocket } from "./ws.js";
 
 const app = express();
@@ -21,6 +22,8 @@ app.get("/health", (_req, res) => {
     rounds: config.rounds,
     rizzModel: config.openaiApiKey ? config.rizzModel : "heuristic (no OPENAI_API_KEY)",
     wingmanModel: config.openaiApiKey ? config.wingmanModel : "heuristic (no OPENAI_API_KEY)",
+    aiDailyRequestCap: config.aiDailyRequestCap,
+    aiDailyTokenCap: config.aiDailyTokenCap,
     moderation: config.moderationEnabled ? config.moderationProvider : "disabled",
   });
 });
@@ -32,6 +35,20 @@ app.use("/companion", companionRouter);
 app.use("/trends", trendsRouter);
 app.use("/wingman", wingmanRouter);
 app.use("/food", foodRouter);
+
+app.get("/ai/usage", (req, res) => {
+  const userKey = String(req.query.userKey ?? "anon").slice(0, 80);
+  const used = aiBudget.snapshot(userKey);
+  const remaining = aiBudget.remaining(userKey);
+  res.json({
+    used,
+    remaining,
+    usage: aiUsagePayload(userKey),
+    dailyRequestCap: config.aiDailyRequestCap,
+    dailyTokenCap: config.aiDailyTokenCap,
+    note: "Wingman, companion, and rizz trainer share this daily cap. Not unlimited.",
+  });
+});
 
 const server = http.createServer(app);
 attachWebSocket(server);

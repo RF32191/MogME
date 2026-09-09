@@ -30,6 +30,9 @@ final class WorkoutLocationEngine: NSObject, ObservableObject, @unchecked Sendab
     private var storedLast: GPSPoint?
     private var publishWork: DispatchWorkItem?
     private var bgTask: UIBackgroundTaskIdentifier = .invalid
+    /// Fired on the main queue after each accepted GPS batch so cardio can tick
+    /// and finish even when the workout screen is gone.
+    var onFix: (() -> Void)?
 
     override init() {
         super.init()
@@ -80,9 +83,10 @@ final class WorkoutLocationEngine: NSObject, ObservableObject, @unchecked Sendab
         lock.unlock()
         beginBackgroundTask()
         manager.pausesLocationUpdatesAutomatically = false
-        if status == .authorizedAlways {
-            manager.allowsBackgroundLocationUpdates = true
-        }
+        // When In Use + location background mode still delivers fixes after
+        // the user leaves the app, as long as we started in the foreground.
+        manager.allowsBackgroundLocationUpdates = true
+        manager.showsBackgroundLocationIndicator = true
         manager.startUpdatingLocation()
         publishOnMain { [weak self] in
             self?.isTracking = true
@@ -147,6 +151,9 @@ final class WorkoutLocationEngine: NSObject, ObservableObject, @unchecked Sendab
         storedLast = latest
         lock.unlock()
         schedulePublish()
+        DispatchQueue.main.async { [weak self] in
+            self?.onFix?()
+        }
     }
 
     private func schedulePublish() {

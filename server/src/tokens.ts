@@ -1,3 +1,5 @@
+import { config } from "./config.js";
+
 /**
  * Conservative token + dollar estimates for Railway-hosted OpenAI calls.
  * Prices are gpt-4o-mini list rates (USD / 1M tokens). Vision "low" detail is 85 tokens.
@@ -90,4 +92,41 @@ export class DailyTokenBudget {
     this.byUser.set(userKey, current);
     return { ...current };
   }
+}
+
+/** One shared daily pool for wingman, companion, and rizz trainer. */
+export const aiBudget = new DailyTokenBudget({
+  dailyRequestCap: config.aiDailyRequestCap,
+  dailyTokenCap: config.aiDailyTokenCap,
+});
+
+export interface AIUsagePayload {
+  requestsToday: number;
+  requestsRemaining: number;
+  tokensToday: number;
+  tokensRemaining: number;
+  estimatedCostUsdToday: number;
+  thisRequest?: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
+}
+
+export function aiUsagePayload(
+  userKey: string,
+  thisRequest?: { inputTokens: number; outputTokens: number },
+): AIUsagePayload {
+  const used = aiBudget.snapshot(userKey);
+  const remaining = aiBudget.remaining(userKey);
+  return {
+    requestsToday: used.requests,
+    requestsRemaining: remaining.requests,
+    tokensToday: used.inputTokens + used.outputTokens,
+    tokensRemaining: remaining.tokens,
+    estimatedCostUsdToday: Number(used.estimatedCostUsd.toFixed(5)),
+    thisRequest: thisRequest
+      ? {
+          inputTokens: thisRequest.inputTokens,
+          outputTokens: thisRequest.outputTokens,
+          estimatedCostUsd: Number(estimateCostUsd(thisRequest.inputTokens, thisRequest.outputTokens).toFixed(5)),
+        }
+      : undefined,
+  };
 }

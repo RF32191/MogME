@@ -33,6 +33,10 @@ struct HomeView: View {
                         }
                         .buttonStyle(GoldButtonStyle())
 
+                        Text(appState.aiQuota.line)
+                            .font(.footnote)
+                            .foregroundStyle(MogTheme.muted)
+
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             quick("Diet", "\(Int(meals.todayCalories)) kcal today", .diet, "fork.knife")
                             quick("Japanese walk", "3 / 3 intervals", .train, "figure.walk")
@@ -48,7 +52,7 @@ struct HomeView: View {
                                     set: { appState.setHandle($0) }
                                 ))
                                 .textFieldStyle(.roundedBorder)
-                                Text("Used for mog-off sign-in and the wingman daily token budget.")
+                                Text("Used for mog-off sign-in and the shared daily AI cap (wingman, companion, rizz).")
                                     .font(.caption)
                                     .foregroundStyle(MogTheme.muted)
                             }

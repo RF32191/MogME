@@ -18,11 +18,17 @@ final class AppState: ObservableObject {
     /// Shared so leaving the workout screen or backgrounding cannot deinit GPS mid-fix.
     let walkGPS = WorkoutLocationEngine()
     let cardioGPS = WorkoutLocationEngine()
+    let walkRuntime: WorkoutRuntime
+    let cardioRuntime: WorkoutRuntime
+    let workouts = WorkoutHistoryStore()
+    let aiQuota = AIQuota()
 
     private let defaults = UserDefaults.standard
 
     init() {
         handle = defaults.string(forKey: "mogme.handle") ?? "mogger"
+        walkRuntime = WorkoutRuntime(kind: .japaneseWalking, gps: walkGPS)
+        cardioRuntime = WorkoutRuntime(kind: .intervalCardio, gps: cardioGPS)
     }
 
     var apiBaseURL: URL {
@@ -39,7 +45,14 @@ final class AppState: ObservableObject {
             handle = "mogger"
         }
         defaults.set(handle, forKey: "mogme.handle")
+        walkRuntime.persist = { [weak self] workout in
+            self?.workouts.add(workout)
+        }
+        cardioRuntime.persist = { [weak self] workout in
+            self?.workouts.add(workout)
+        }
         listenForSiri()
+        Task { await aiQuota.refresh(baseURL: apiBaseURL, userKey: userId ?? handle) }
     }
 
     private func listenForSiri() {

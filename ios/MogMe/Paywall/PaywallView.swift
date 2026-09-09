@@ -45,7 +45,7 @@ struct PaywallView: View {
                     MogCard {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Lifetime includes").font(.headline)
-                            Text("Japanese walking, interval GPS, diet photo analytics, wingman screenshot analysis, rizz trainer, companion, mog-off.")
+                            Text("Japanese walking, interval GPS, diet photo analytics, wingman screenshot analysis, rizz trainer, companion, mog-off. AI turns share a daily cap — they are not unlimited.")
                                 .font(.subheadline)
                                 .foregroundStyle(MogTheme.muted)
                         }

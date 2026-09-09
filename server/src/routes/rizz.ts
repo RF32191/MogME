@@ -40,7 +40,11 @@ rizzRouter.post("/practice/start", (req, res) => {
   });
 });
 
-const MsgBody = z.object({ sessionId: z.string(), text: z.string() });
+const MsgBody = z.object({
+  sessionId: z.string(),
+  text: z.string(),
+  userKey: z.string().min(1).max(80).optional(),
+});
 
 rizzRouter.post("/practice/message", async (req, res) => {
   const parsed = MsgBody.safeParse(req.body);
@@ -53,7 +57,11 @@ rizzRouter.post("/practice/message", async (req, res) => {
     res.status(404).json({ error: "session-not-found" });
     return;
   }
-  const result = await practiceTurn(session, parsed.data.text);
+  const result = await practiceTurn(session, parsed.data.text, parsed.data.userKey ?? "anon");
+  if (!result.ok && (result.reason === "daily-request-cap" || result.reason === "daily-token-cap")) {
+    res.status(429).json(result);
+    return;
+  }
   res.json(result);
 });
 

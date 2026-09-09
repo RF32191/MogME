@@ -31,7 +31,10 @@ struct WingmanView: View {
         }
         .navigationTitle("AI Wingman")
         .crownToolbar()
-        .onAppear { hydrateFromSelected() }
+        .onAppear {
+            hydrateFromSelected()
+            Task { await appState.aiQuota.refresh(baseURL: appState.apiBaseURL, userKey: appState.userId ?? appState.handle) }
+        }
         .fullScreenCover(isPresented: $cameraOpen) {
             MealCameraView(
                 onCapture: { image in
@@ -168,19 +171,22 @@ struct WingmanView: View {
                         .font(.title)
                         .foregroundStyle(service.busy ? MogTheme.muted : MogTheme.gold)
                 }
-                .disabled(service.busy)
+                .disabled(service.busy || appState.aiQuota.isExhausted)
             }
             HStack {
                 Button { cameraOpen = true } label: {
                     Label("Live shot", systemImage: "camera.fill")
                 }
+                .disabled(appState.aiQuota.isExhausted)
                 PhotosPicker(selection: $pickerItem, matching: .images) {
                     Label("Library", systemImage: "photo")
                 }
+                .disabled(appState.aiQuota.isExhausted)
                 Spacer()
-                Text(service.usageText).font(.caption2).foregroundStyle(MogTheme.muted)
             }
             .font(.caption)
+            Text(appState.aiQuota.line).font(.caption2).foregroundStyle(MogTheme.muted)
+            Text(service.usageText).font(.caption2).foregroundStyle(MogTheme.muted)
         }
         .padding(12)
         .background(MogTheme.card)
@@ -224,6 +230,9 @@ struct WingmanView: View {
             image: image,
             memory: partners.selected
         )
+        if let usage = service.lastUsage {
+            appState.aiQuota.apply(usage.snapshot)
+        }
         chatImage = nil
     }
 
@@ -241,6 +250,9 @@ struct WingmanView: View {
             image: image,
             memory: partners.selected
         )
+        if let usage = service.lastUsage {
+            appState.aiQuota.apply(usage.snapshot)
+        }
     }
 }
 
