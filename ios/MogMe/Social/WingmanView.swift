@@ -101,6 +101,21 @@ struct WingmanView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: message.role == "user" ? .trailing : .leading)
             }
+            if !service.analysis.isEmpty {
+                MogCard {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("AI analysis").font(.headline)
+                        if !service.tone.isEmpty {
+                            Text("Tone: \(service.tone)").font(.caption).foregroundStyle(MogTheme.gold)
+                        }
+                        Text(service.analysis)
+                        if !service.transcript.isEmpty {
+                            Text("From the screenshot").font(.caption.bold()).padding(.top, 4)
+                            Text(service.transcript).font(.footnote).foregroundStyle(MogTheme.muted)
+                        }
+                    }
+                }
+            }
             if !service.replies.isEmpty {
                 Text("Try sending").font(.subheadline.bold())
                 ForEach(service.replies, id: \.self) { reply in

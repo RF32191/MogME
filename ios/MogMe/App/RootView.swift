@@ -23,15 +23,17 @@ struct RootView: View {
                 .tag(AppState.Tab.play)
         }
         .tint(MogTheme.gold)
-        .sheet(isPresented: Binding(
-            get: { !store.isUnlocked && store.product != nil && showPaywallIfNeeded },
-            set: { _ in }
-        )) {
-            EmptyView()
+        .sheet(isPresented: $store.showPaywall) {
+            NavigationStack {
+                PaywallView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { store.showPaywall = false }
+                        }
+                    }
+            }
         }
     }
-
-    private var showPaywallIfNeeded: Bool { false }
 }
 
 struct PlayHubView: View {
@@ -55,6 +57,7 @@ struct PlayHubView: View {
                 }
             }
             .navigationTitle("Play")
+            .crownToolbar()
         }
     }
 

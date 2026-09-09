@@ -42,7 +42,7 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   rizzModel: process.env.RIZZ_MODEL ?? "gpt-4o-mini",
   wingmanModel: process.env.WINGMAN_MODEL ?? process.env.RIZZ_MODEL ?? "gpt-4o-mini",
-  wingmanMaxTokens: num("WINGMAN_MAX_TOKENS", 280),
+  wingmanMaxTokens: num("WINGMAN_MAX_TOKENS", 420),
   wingmanDailyRequestCap: num("WINGMAN_DAILY_REQUEST_CAP", 40),
   wingmanDailyTokenCap: num("WINGMAN_DAILY_TOKEN_CAP", 50_000),
 

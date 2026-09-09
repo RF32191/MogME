@@ -12,7 +12,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/tokens.test.ts"
+    "test": "tsx --test src/tokens.test.ts src/food.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

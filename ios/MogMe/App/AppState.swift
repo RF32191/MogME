@@ -15,6 +15,10 @@ final class AppState: ObservableObject {
     @Published var pendingCardioStart = false
     @Published var pendingWingmanPrompt: String?
 
+    /// Shared so leaving the workout screen or backgrounding cannot deinit GPS mid-fix.
+    let walkGPS = WorkoutLocationEngine()
+    let cardioGPS = WorkoutLocationEngine()
+
     private let defaults = UserDefaults.standard
 
     init() {

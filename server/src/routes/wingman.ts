@@ -8,6 +8,7 @@ const Body = z.object({
   userKey: z.string().min(1).max(80).optional(),
   goal: z.enum(["evaluate", "reply", "strategy"]).optional(),
   text: z.string().max(800).optional(),
+  ocrText: z.string().max(4000).optional(),
   imageDataUrl: z.string().max(1_200_000).optional(),
   memory: z
     .object({
@@ -36,6 +37,7 @@ wingmanRouter.post("/advise", async (req, res) => {
     userKey: data.userKey ?? "anon",
     goal: (data.goal ?? "evaluate") as WingmanGoal,
     text: data.text,
+    ocrText: data.ocrText,
     imageDataUrl: data.imageDataUrl,
     memory: data.memory,
     history: data.history,

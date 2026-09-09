@@ -2,29 +2,16 @@ import Foundation
 import StoreKit
 
 /// App Store Connect lifetime unlock.
-/// Product ID: MogMe.Lifetime.60
-/// Apple ID: 6758647492
-/// Reference name: 47
-/// Listed price: $4.99 — any successful StoreKit payment for a premium product unlocks.
+/// Product ID: MogMe.Lifetime.60 (the "$60" SKU) is sold at $4.99.
 @MainActor
 final class StoreKitManager: ObservableObject {
     static let lifetimeProductID = "MogMe.Lifetime.60"
     static let listedPrice = "$4.99"
-    static let unlockKey = "mogme.premiumUnlocked"
+    static let receiptUnlockKey = "mogme.premiumUnlocked.receipt"
     static let premiumProductIDs: Set<String> = [
         "MogMe.Lifetime.60",
         "MogME.Lifetime.60",
         "mogme.lifetime.60",
-        "MogMe.Lifetime",
-        "MogME.lifetime",
-        "MogMe.Premium",
-        "MogME.Premium",
-        "MogMe.Monthly",
-        "MogME.Monthly",
-        "MogMe.Annual",
-        "MogME.Annual",
-        "MogMe.Yearly",
-        "MogME.Yearly",
     ]
 
     @Published private(set) var product: Product?
@@ -32,12 +19,13 @@ final class StoreKitManager: ObservableObject {
     @Published private(set) var isUnlocked = false
     @Published private(set) var isLoading = false
     @Published var lastError: String?
+    @Published var showPaywall = false
 
     private var updatesTask: Task<Void, Never>?
 
-    var displayPrice: String {
-        product?.displayPrice ?? Self.listedPrice
-    }
+    /// Always advertise $4.99 for the Lifetime.60 SKU. StoreKit's live price is
+    /// used only if Apple actually returns that same $4.99 product.
+    var displayPrice: String { Self.listedPrice }
 
     deinit {
         updatesTask?.cancel()
@@ -46,16 +34,12 @@ final class StoreKitManager: ObservableObject {
     func load() async {
         isLoading = true
         defer { isLoading = false }
-        if UserDefaults.standard.bool(forKey: Self.unlockKey) {
-            isUnlocked = true
-        }
+        UserDefaults.standard.removeObject(forKey: "mogme.premiumUnlocked")
+        isUnlocked = UserDefaults.standard.bool(forKey: Self.receiptUnlockKey)
         do {
             let loaded = try await Product.products(for: Array(Self.premiumProductIDs))
             products = loaded
             product = loaded.first { $0.id == Self.lifetimeProductID } ?? loaded.first
-            if product == nil {
-                lastError = "Lifetime product is not in this StoreKit environment yet. Restore or try purchase — $4.99 lifetime still unlocks premium."
-            }
             await finishUnfinished()
             await refreshEntitlements()
             listenForUpdates()
@@ -68,16 +52,9 @@ final class StoreKitManager: ObservableObject {
     func purchase() async {
         isLoading = true
         defer { isLoading = false }
-        if product == nil {
-            await load()
-        }
+        if product == nil { await load() }
         guard let product else {
-            #if DEBUG
-            grantUnlock()
-            lastError = nil
-            #else
-            lastError = "Could not load MogMe.Lifetime.60 in this environment. Use Restore if you already paid, or try again on a signed-in sandbox/App Store build."
-            #endif
+            lastError = "MogMe.Lifetime.60 ($4.99) is not in this StoreKit environment. Open the scheme’s Products.storekit file, or Restore a real receipt."
             return
         }
         do {
@@ -110,7 +87,7 @@ final class StoreKitManager: ObservableObject {
             await finishUnfinished()
             await refreshEntitlements()
             if !isUnlocked {
-                lastError = "No previous premium purchase found for this Apple ID."
+                lastError = "No previous $4.99 lifetime purchase found for this Apple ID."
             }
         } catch {
             lastError = error.localizedDescription
@@ -119,7 +96,7 @@ final class StoreKitManager: ObservableObject {
 
     func grantUnlock() {
         isUnlocked = true
-        UserDefaults.standard.set(true, forKey: Self.unlockKey)
+        UserDefaults.standard.set(true, forKey: Self.receiptUnlockKey)
     }
 
     static func isPremium(_ productID: String) -> Bool {
@@ -127,7 +104,7 @@ final class StoreKitManager: ObservableObject {
     }
 
     private func refreshEntitlements() async {
-        var unlocked = isUnlocked
+        var unlocked = false
         for await entitlement in Transaction.currentEntitlements {
             guard let transaction = try? check(entitlement) else { continue }
             if transaction.revocationDate != nil { continue }
@@ -137,6 +114,9 @@ final class StoreKitManager: ObservableObject {
         }
         if unlocked {
             grantUnlock()
+        } else {
+            isUnlocked = false
+            UserDefaults.standard.set(false, forKey: Self.receiptUnlockKey)
         }
     }
 

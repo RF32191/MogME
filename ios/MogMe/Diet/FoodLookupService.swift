@@ -15,19 +15,26 @@ actor FoodLookupService {
         localFoods = Self.loadBundledFoods()
     }
 
+    private var apiBase: URL?
+
+    func use(apiBase: URL) {
+        self.apiBase = apiBase
+    }
+
     func search(query: String) async throws -> [FoodHit] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= 2 else { throw FoodLookupError.emptyQuery }
 
         let local = localFoods.filter { $0.name.localizedCaseInsensitiveContains(q) }
-        do {
-            async let off = openFoodFacts(q)
-            let remote = try await off
-            return merge(local + remote)
-        } catch {
-            if !local.isEmpty { return local }
-            throw FoodLookupError.network
+        var remote: [FoodHit] = []
+        if let apiBase {
+            remote.append(contentsOf: (try? await railwaySearch(q, base: apiBase)) ?? [])
         }
+        remote.append(contentsOf: (try? await openFoodFacts(q)) ?? [])
+        remote.append(contentsOf: (try? await usdaSearch(q)) ?? [])
+        let merged = merge(local + remote)
+        if merged.isEmpty { throw FoodLookupError.network }
+        return merged
     }
 
     /// Reads packaging / nutrition-label text, then searches by the extracted name.
@@ -102,8 +109,10 @@ actor FoodLookupService {
         let decoded = try JSONDecoder().decode(OFFSearch.self, from: data)
         return (decoded.products ?? []).compactMap { product in
             guard let name = product.productName, !name.isEmpty else { return nil }
-            let kcal = product.nutriments?.energyKcal100g ?? product.nutriments?.energyKcalServing
-            guard let calories = kcal, calories > 0, calories < 1200 else { return nil }
+            let kcal = product.nutriments?.energyKcal100g
+                ?? product.nutriments?.energyKcalServing
+                ?? product.nutriments?.energyKj100g.map { $0 / 4.184 }
+            guard let calories = kcal, calories > 0, calories < 2500 else { return nil }
             return FoodHit(
                 id: product.code ?? name,
                 name: name,
@@ -112,9 +121,81 @@ actor FoodLookupService {
                 protein: product.nutriments?.proteins100g,
                 carbs: product.nutriments?.carbohydrates100g,
                 fat: product.nutriments?.fat100g,
+                fiber: product.nutriments?.fiber100g,
+                sugars: product.nutriments?.sugars100g,
+                sodium: product.nutriments?.sodium100g.map { $0 * 1000 },
                 serving: product.servingSize ?? "100 g",
                 source: "Open Food Facts",
-                imageURL: product.imageURL.flatMap(URL.init(string:))
+                imageURL: product.imageURL.flatMap(URL.init(string:)),
+                analysis: "\(name) — \(Int(calories)) kcal per \(product.servingSize ?? "100 g") from Open Food Facts."
+            )
+        }
+    }
+
+    private func railwaySearch(_ query: String, base: URL) async throws -> [FoodHit] {
+        var url = base
+        url.append(path: "food/search")
+        var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        comps.queryItems = [URLQueryItem(name: "q", value: query)]
+        guard let final = comps.url else { return [] }
+        let (data, response) = try await session.data(from: final)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return [] }
+        let decoded = try JSONDecoder().decode(RailwayFoods.self, from: data)
+        return (decoded.foods ?? []).map {
+            FoodHit(
+                id: $0.id,
+                name: $0.name,
+                brand: $0.brand,
+                calories: $0.calories,
+                protein: $0.protein,
+                carbs: $0.carbs,
+                fat: $0.fat,
+                fiber: $0.fiber,
+                sugars: $0.sugars,
+                sodium: $0.sodium,
+                serving: $0.serving,
+                source: $0.source,
+                imageURL: nil,
+                analysis: $0.analysis
+            )
+        }
+    }
+
+    private func usdaSearch(_ query: String) async throws -> [FoodHit] {
+        var comps = URLComponents(string: "https://api.nal.usda.gov/fdc/v1/foods/search")!
+        comps.queryItems = [
+            URLQueryItem(name: "query", value: query),
+            URLQueryItem(name: "pageSize", value: "10"),
+            URLQueryItem(name: "api_key", value: "DEMO_KEY"),
+        ]
+        guard let url = comps.url else { return [] }
+        let (data, response) = try await session.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return [] }
+        let decoded = try JSONDecoder().decode(USDASearch.self, from: data)
+        return (decoded.foods ?? []).compactMap { food in
+            guard let name = food.description, !name.isEmpty else { return nil }
+            func pick(_ keys: [String]) -> Double? {
+                food.foodNutrients?.first { n in
+                    keys.contains { (n.nutrientName ?? "").localizedCaseInsensitiveContains($0) }
+                }?.value
+            }
+            guard let calories = pick(["Energy", "calorie"]), calories > 0, calories < 2500 else { return nil }
+            let serving = food.servingSize.map { "\($0) \(food.servingSizeUnit ?? "g")" } ?? "100 g"
+            return FoodHit(
+                id: String(food.fdcId ?? 0),
+                name: name,
+                brand: food.brandName,
+                calories: calories,
+                protein: pick(["Protein"]),
+                carbs: pick(["Carbohydrate"]),
+                fat: pick(["Total lipid", "Fat"]),
+                fiber: pick(["Fiber"]),
+                sugars: pick(["Sugar"]),
+                sodium: pick(["Sodium"]),
+                serving: serving,
+                source: "USDA FoodData Central",
+                imageURL: nil,
+                analysis: "\(name) — \(Int(calories)) kcal per \(serving) from USDA."
             )
         }
     }
@@ -205,17 +286,18 @@ actor FoodLookupService {
                 fat: $0.fat,
                 serving: $0.serving,
                 source: "MogMe catalog",
-                imageURL: nil
+                imageURL: nil,
+                analysis: "\($0.name) — \(Int($0.calories)) kcal per \($0.serving) from the MogMe catalog."
             )
         }
     }
 
     private static let fallbackFoods: [FoodHit] = [
-        FoodHit(id: "apple", name: "Apple", brand: nil, calories: 95, protein: 0.5, carbs: 25, fat: 0.3, serving: "1 medium", source: "MogMe catalog", imageURL: nil),
-        FoodHit(id: "banana", name: "Banana", brand: nil, calories: 105, protein: 1.3, carbs: 27, fat: 0.4, serving: "1 medium", source: "MogMe catalog", imageURL: nil),
-        FoodHit(id: "egg", name: "Egg, large", brand: nil, calories: 72, protein: 6.3, carbs: 0.4, fat: 4.8, serving: "1 large", source: "MogMe catalog", imageURL: nil),
-        FoodHit(id: "chicken", name: "Chicken breast, cooked", brand: nil, calories: 165, protein: 31, carbs: 0, fat: 3.6, serving: "100 g", source: "MogMe catalog", imageURL: nil),
-        FoodHit(id: "rice", name: "White rice, cooked", brand: nil, calories: 206, protein: 4.3, carbs: 45, fat: 0.4, serving: "1 cup", source: "MogMe catalog", imageURL: nil),
+        FoodHit(id: "apple", name: "Apple", brand: nil, calories: 95, protein: 0.5, carbs: 25, fat: 0.3, serving: "1 medium", source: "MogMe catalog", imageURL: nil, analysis: "Apple — 95 kcal per 1 medium from the MogMe catalog."),
+        FoodHit(id: "banana", name: "Banana", brand: nil, calories: 105, protein: 1.3, carbs: 27, fat: 0.4, serving: "1 medium", source: "MogMe catalog", imageURL: nil, analysis: "Banana — 105 kcal per 1 medium from the MogMe catalog."),
+        FoodHit(id: "egg", name: "Egg, large", brand: nil, calories: 72, protein: 6.3, carbs: 0.4, fat: 4.8, serving: "1 large", source: "MogMe catalog", imageURL: nil, analysis: "Egg — 72 kcal per 1 large from the MogMe catalog."),
+        FoodHit(id: "chicken", name: "Chicken breast, cooked", brand: nil, calories: 165, protein: 31, carbs: 0, fat: 3.6, serving: "100 g", source: "MogMe catalog", imageURL: nil, analysis: "Chicken breast — 165 kcal per 100 g from the MogMe catalog."),
+        FoodHit(id: "rice", name: "White rice, cooked", brand: nil, calories: 206, protein: 4.3, carbs: 45, fat: 0.4, serving: "1 cup", source: "MogMe catalog", imageURL: nil, analysis: "White rice — 206 kcal per 1 cup from the MogMe catalog."),
     ]
 }
 
@@ -267,15 +349,61 @@ private struct OFFProduct: Decodable {
 private struct OFFNutriments: Decodable {
     let energyKcal100g: Double?
     let energyKcalServing: Double?
+    let energyKj100g: Double?
     let proteins100g: Double?
     let carbohydrates100g: Double?
     let fat100g: Double?
+    let fiber100g: Double?
+    let sugars100g: Double?
+    let sodium100g: Double?
 
     enum CodingKeys: String, CodingKey {
         case energyKcal100g = "energy-kcal_100g"
         case energyKcalServing = "energy-kcal_serving"
+        case energyKj100g = "energy_100g"
         case proteins100g = "proteins_100g"
         case carbohydrates100g = "carbohydrates_100g"
         case fat100g = "fat_100g"
+        case fiber100g = "fiber_100g"
+        case sugars100g = "sugars_100g"
+        case sodium100g = "sodium_100g"
     }
+}
+
+private struct RailwayFoods: Decodable {
+    let foods: [RailwayFood]?
+}
+
+private struct RailwayFood: Decodable {
+    let id: String
+    let name: String
+    let brand: String?
+    let calories: Double
+    let protein: Double?
+    let carbs: Double?
+    let fat: Double?
+    let fiber: Double?
+    let sugars: Double?
+    let sodium: Double?
+    let serving: String
+    let source: String
+    let analysis: String?
+}
+
+private struct USDASearch: Decodable {
+    let foods: [USDAFood]?
+}
+
+private struct USDAFood: Decodable {
+    let fdcId: Int?
+    let description: String?
+    let brandName: String?
+    let servingSize: Double?
+    let servingSizeUnit: String?
+    let foodNutrients: [USDANutrient]?
+}
+
+private struct USDANutrient: Decodable {
+    let nutrientName: String?
+    let value: Double?
 }

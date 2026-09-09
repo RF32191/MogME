@@ -3,7 +3,7 @@ import SwiftUI
 struct IntervalCardioView: View {
     @ObservedObject var history: WorkoutHistoryStore
     @EnvironmentObject private var appState: AppState
-    @StateObject private var gps = WorkoutLocationEngine()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var workSec = 60
     @State private var restSec = 60
     @State private var rounds = 8
@@ -14,14 +14,21 @@ struct IntervalCardioView: View {
     @State private var elapsed = 0
     @State private var burned = 0.0
     @State private var bodyKg = 75.0
+    @State private var segmentEnd: Date?
+    @State private var runStarted: Date?
+    @State private var pausedElapsed = 0
     @State private var timer: Timer?
+
+    private var gps: WorkoutLocationEngine { appState.cardioGPS }
 
     var body: some View {
         ZStack {
             MogTheme.backgroundGradient.ignoresSafeArea()
             VStack(spacing: 14) {
-                WorkoutMapView(route: gps.route, isHard: current?.isHard ?? true)
-                    .frame(height: 200)
+                if scenePhase == .active {
+                    WorkoutMapView(route: gps.route, isHard: current?.isHard ?? true)
+                        .frame(height: 200)
+                }
                 MogCard {
                     VStack(spacing: 8) {
                         Text(current?.label ?? "Set your intervals").font(.title3.bold())
@@ -58,9 +65,14 @@ struct IntervalCardioView: View {
             if appState.pendingCardioStart {
                 appState.pendingCardioStart = false
                 start()
+            } else if running {
+                startTimer()
             }
         }
-        .onDisappear { stopTimerOnly() }
+        .onReceive(gps.objectWillChange) { _ in }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, running { syncFromWallClock() }
+        }
     }
 
     private var current: IntervalBlock? {
@@ -90,18 +102,21 @@ struct IntervalCardioView: View {
         }
         if !gps.isTracking { gps.start() }
         running = true
+        segmentEnd = Date().addingTimeInterval(TimeInterval(remaining))
+        runStarted = Date().addingTimeInterval(TimeInterval(-pausedElapsed))
         startTimer()
     }
 
     private func pause() {
         running = false
+        pausedElapsed = elapsed
         stopTimerOnly()
     }
 
     private func startTimer() {
         stopTimerOnly()
         let t = Timer(timeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in tick() }
+            DispatchQueue.main.async { syncFromWallClock() }
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t
@@ -112,16 +127,20 @@ struct IntervalCardioView: View {
         timer = nil
     }
 
-    private func tick() {
+    private func syncFromWallClock() {
         guard running, let block = current else { return }
-        remaining -= 1
-        elapsed += 1
-        burned += WorkoutPresets.calories(mets: block.mets, kg: bodyKg, seconds: 1)
+        if let start = runStarted {
+            elapsed = max(0, Int(Date().timeIntervalSince(start)))
+        }
+        if let end = segmentEnd {
+            remaining = max(0, Int(end.timeIntervalSinceNow.rounded()))
+        }
+        burned = WorkoutPresets.calories(mets: block.mets, kg: bodyKg, seconds: elapsed)
         if remaining <= 0 {
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
             if index + 1 < blocks.count {
                 index += 1
                 remaining = blocks[index].seconds
+                segmentEnd = Date().addingTimeInterval(TimeInterval(remaining))
             } else {
                 finish()
             }
@@ -137,9 +156,9 @@ struct IntervalCardioView: View {
             kind: .intervalCardio,
             startedAt: Date().addingTimeInterval(-Double(elapsed)),
             elapsedSec: elapsed,
-            distanceMeters: gps.distanceMeters,
+            distanceMeters: gps.snapshotDistance(),
             calories: burned,
-            route: gps.route
+            route: gps.snapshotRoute()
         ))
         blocks = []
     }

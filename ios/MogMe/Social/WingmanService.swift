@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Vision
 
 struct WingmanUsage: Codable, Hashable {
     var requestsToday: Int
@@ -20,6 +21,9 @@ struct WingmanAdvice: Codable, Hashable {
     var ok: Bool
     var reason: String?
     var advice: String?
+    var analysis: String?
+    var transcript: String?
+    var tone: String?
     var suggestedReplies: [String]?
     var sawImage: Bool?
     var usage: WingmanUsage?
@@ -41,6 +45,9 @@ final class WingmanService: ObservableObject {
     @Published var busy = false
     @Published var error: String?
     @Published var messages: [WingmanChatTurn] = []
+    @Published var analysis: String = ""
+    @Published var transcript: String = ""
+    @Published var tone: String = ""
 
     var historyPayload: [[String: String]] {
         messages.suffix(8).map { ["role": $0.role == "user" ? "user" : "assistant", "content": String($0.content.prefix(280))] }
@@ -59,10 +66,15 @@ final class WingmanService: ObservableObject {
         let userLine = trimmed.isEmpty ? "Read this chat screenshot and coach the next move." : trimmed
         messages.append(WingmanChatTurn(role: "user", content: userLine, image: image))
 
+        var ocrText = ""
+        if let image {
+            ocrText = await Self.readChatText(image)
+        }
         var body: [String: Any] = [
             "userKey": userKey,
             "goal": goal,
             "text": userLine,
+            "ocrText": ocrText,
             "history": historyPayload.dropLast(),
         ]
         if let memory {
@@ -101,6 +113,9 @@ final class WingmanService: ObservableObject {
                 return
             }
             replies = decoded.suggestedReplies ?? []
+            analysis = decoded.analysis ?? decoded.advice ?? ""
+            transcript = decoded.transcript ?? ocrText
+            tone = decoded.tone ?? ""
             lastUsage = decoded.usage
             if let usage = decoded.usage {
                 let imageNote = decoded.sawImage == true ? " · screenshot billed" : ""
@@ -112,7 +127,13 @@ final class WingmanService: ObservableObject {
                     imageNote
                 )
             }
-            let advice = decoded.advice ?? ""
+            var advice = decoded.analysis ?? decoded.advice ?? ""
+            if let tone = decoded.tone, !tone.isEmpty {
+                advice = "Tone: \(tone)\n\n" + advice
+            }
+            if let transcript = decoded.transcript, !transcript.isEmpty {
+                advice += "\n\nRead from the screenshot:\n\(transcript)"
+            }
             messages.append(WingmanChatTurn(
                 role: "assistant",
                 content: advice,
@@ -120,6 +141,22 @@ final class WingmanService: ObservableObject {
             ))
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    static func readChatText(_ image: UIImage) async -> String {
+        guard let cg = image.cgImage else { return "" }
+        return await withCheckedContinuation { continuation in
+            let request = VNRecognizeTextRequest { request, _ in
+                let lines = ((request.results as? [VNRecognizedTextObservation]) ?? [])
+                    .compactMap { $0.topCandidates(1).first?.string }
+                continuation.resume(returning: lines.joined(separator: "\n"))
+            }
+            request.recognitionLevel = .accurate
+            let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+            DispatchQueue.global(qos: .userInitiated).async {
+                do { try handler.perform([request]) } catch { continuation.resume(returning: "") }
+            }
         }
     }
 }

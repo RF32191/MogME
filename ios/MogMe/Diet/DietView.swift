@@ -58,6 +58,10 @@ struct DietView: View {
                             }
                         }
 
+                        if let top = model.hits.first {
+                            analysisCard(top)
+                        }
+
                         if !model.hits.isEmpty {
                             Text("Matches").font(.headline)
                             ForEach(model.hits) { hit in
@@ -105,6 +109,7 @@ struct DietView: View {
                 }
             }
             .navigationTitle("Diet")
+            .crownToolbar()
             .fullScreenCover(isPresented: $cameraOpen) {
                 MealCameraView(
                     onCapture: { image in
@@ -121,6 +126,7 @@ struct DietView: View {
                     await model.acceptPhoto(image)
                 }
             }
+            .onAppear { model.setAPI(appState.apiBaseURL) }
             .onChange(of: appState.pendingFoodQuery) { _, query in
                 guard let query, !query.isEmpty else { return }
                 model.query = query
@@ -170,6 +176,31 @@ struct DietView: View {
         }
     }
 
+    private func analysisCard(_ hit: FoodHit) -> some View {
+        MogCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Food analysis").font(.headline)
+                Text(hit.name).font(.title3.bold()).foregroundStyle(MogTheme.gold)
+                Text(hit.headline).font(.subheadline)
+                HStack {
+                    macro("kcal", "\(Int(hit.calories))")
+                    macro("P", hit.protein.map { "\(Int($0))g" } ?? "—")
+                    macro("C", hit.carbs.map { "\(Int($0))g" } ?? "—")
+                    macro("F", hit.fat.map { "\(Int($0))g" } ?? "—")
+                }
+                Text("\(hit.serving) · \(hit.source)").font(.caption).foregroundStyle(MogTheme.muted)
+            }
+        }
+    }
+
+    private func macro(_ label: String, _ value: String) -> some View {
+        VStack {
+            Text(value).font(.headline)
+            Text(label).font(.caption2).foregroundStyle(MogTheme.muted)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     private func foodRow(_ hit: FoodHit) -> some View {
         MogCard {
             HStack(spacing: 12) {
@@ -205,6 +236,10 @@ final class DietSearchModel: ObservableObject {
     @Published var description = ""
     @Published var loadingMessage = "Reading your meal…"
     private let lookup = FoodLookupService()
+
+    func setAPI(_ url: URL) {
+        Task { await lookup.use(apiBase: url) }
+    }
 
     func resetPhoto() {
         captured = nil

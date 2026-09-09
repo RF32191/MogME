@@ -8,9 +8,17 @@ struct FoodHit: Identifiable, Hashable, Sendable {
     var protein: Double?
     var carbs: Double?
     var fat: Double?
+    var fiber: Double?
+    var sugars: Double?
+    var sodium: Double?
     var serving: String
     var source: String
     var imageURL: URL?
+    var analysis: String?
+
+    var headline: String {
+        analysis ?? "\(name) — \(Int(calories)) kcal per \(serving) (\(source))."
+    }
 }
 
 struct LoggedMeal: Identifiable, Codable, Hashable {

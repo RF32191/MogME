@@ -39,6 +39,7 @@ export interface WingmanRequest {
   userKey: string;
   goal: WingmanGoal;
   text?: string;
+  ocrText?: string;
   imageDataUrl?: string;
   memory?: PartnerMemoryInput;
   history?: WingmanTurn[];
@@ -50,6 +51,9 @@ export interface WingmanResult {
   ok: boolean;
   reason?: string;
   advice?: string;
+  analysis?: string;
+  transcript?: string;
+  tone?: string;
   suggestedReplies?: string[];
   sawImage?: boolean;
   usage?: {
@@ -96,7 +100,7 @@ function systemPrompt(goal: WingmanGoal, memory?: PartnerMemoryInput): string {
     "Use the local partner memory as context. Do not invent facts they did not provide.",
     "If a chat screenshot is attached, transcribe the visible bubbles in your head and coach from those exact lines. Do not ignore the image. Do not spend the reply describing pixels.",
     GOAL_LINE[goal],
-    "Respond ONLY as compact JSON: {\"advice\": string (<=3 short paragraphs), \"suggested_replies\": string[] (2-3 short texts the user could send)}.",
+    "Respond ONLY as compact JSON: {\"transcript\": string (messages you can read), \"tone\": string, \"analysis\": string (<=3 short paragraphs), \"advice\": string, \"suggested_replies\": string[] (2-3 short texts)}.",
     "Partner memory:",
     compactMemory(memory),
   ].join("\n");
@@ -130,10 +134,11 @@ export function projectWingmanInputTokens(req: WingmanRequest): number {
 export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult> {
   const userKey = req.userKey.slice(0, 80) || "anon";
   const text = (req.text ?? "").trim().slice(0, 800);
+  const ocrText = (req.ocrText ?? "").trim().slice(0, 4000);
   const imageCheck = inspectImage(req.imageDataUrl);
   if (imageCheck.status === "error") return { ok: false, reason: imageCheck.reason };
   const image = imageCheck.status === "ok" ? imageCheck.url : undefined;
-  if (!text && !image) return { ok: false, reason: "empty" };
+  if (!text && !image && !ocrText) return { ok: false, reason: "empty" };
 
   if (text) {
     const mod = await moderateText(text);
@@ -146,9 +151,9 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
 
   const client = getOpenAI();
   if (!client) {
-    const fallback = heuristicWingman(req.goal, text, Boolean(image));
+    const fallback = heuristicWingman(req.goal, text || ocrText, Boolean(image || ocrText), ocrText);
     const usage = wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
-    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image));
+    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image || ocrText), fallback);
   }
 
   const history = (req.history ?? []).slice(-6).map((m) => ({
@@ -159,9 +164,13 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
   const userContent: OpenAI.Chat.ChatCompletionContentPart[] = [];
   userContent.push({
     type: "text",
-    text: image
-      ? `${text || "Read every visible message in this screenshot and coach the next text."}\nThe image is a real conversation screenshot — use it.`
-      : text,
+    text: [
+      text || "Analyze this conversation and tell me the next move.",
+      ocrText ? `OCR from the screenshot:\n${ocrText}` : "",
+      image ? "A chat screenshot is attached. Read the bubbles and analyze the thread." : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
   });
   if (image) {
     userContent.push({
@@ -183,8 +192,14 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
       ],
     });
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw) as { advice?: string; suggested_replies?: string[] };
-    const advice = (parsed.advice ?? "").toString().trim().slice(0, 1400) || "Keep it specific and light — ask one real question about something they already mentioned.";
+    const parsed = JSON.parse(raw) as {
+      advice?: string;
+      analysis?: string;
+      transcript?: string;
+      tone?: string;
+      suggested_replies?: string[];
+    };
+    const advice = (parsed.analysis ?? parsed.advice ?? "").toString().trim().slice(0, 1400) || "Keep it specific and light — ask one real question about something they already mentioned.";
     const suggested = (parsed.suggested_replies ?? []).slice(0, 3).map((s) => s.toString().slice(0, 180));
     const outMod = await moderateText(`${advice}\n${suggested.join("\n")}`);
     const safeAdvice = outMod.approved ? advice : "Let's keep this respectful. Ask about their day and reference something they already shared.";
@@ -192,11 +207,17 @@ export async function adviseWingman(req: WingmanRequest): Promise<WingmanResult>
     const inTok = completion.usage?.prompt_tokens ?? projected;
     const outTok = completion.usage?.completion_tokens ?? estimateTokensFromText(safeAdvice);
     const usage = wingmanBudget.record(userKey, inTok, outTok);
-    return withUsage(true, safeAdvice, safeSuggested, inTok, outTok, usage, Boolean(image));
+    return withUsage(true, safeAdvice, safeSuggested, inTok, outTok, usage, Boolean(image || ocrText), {
+      advice: safeAdvice,
+      suggestedReplies: safeSuggested,
+      analysis: safeAdvice,
+      transcript: (parsed.transcript ?? ocrText).toString().slice(0, 1200),
+      tone: (parsed.tone ?? "").toString().slice(0, 80),
+    });
   } catch {
-    const fallback = heuristicWingman(req.goal, text, Boolean(image));
+    const fallback = heuristicWingman(req.goal, text || ocrText, Boolean(image || ocrText), ocrText);
     const usage = wingmanBudget.record(userKey, projected, estimateTokensFromText(fallback.advice));
-    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image));
+    return withUsage(true, fallback.advice, fallback.suggestedReplies, projected, estimateTokensFromText(fallback.advice), usage, Boolean(image || ocrText), fallback);
   }
 }
 
@@ -208,6 +229,7 @@ function withUsage(
   outputTokens: number,
   usage: ReturnType<DailyTokenBudget["record"]>,
   sawImage = false,
+  extra?: { advice: string; suggestedReplies: string[]; analysis?: string; transcript?: string; tone?: string },
 ): WingmanResult {
   const remaining = {
     requests: Math.max(0, config.wingmanDailyRequestCap - usage.requests),
@@ -216,6 +238,9 @@ function withUsage(
   return {
     ok,
     advice,
+    analysis: extra?.analysis ?? advice,
+    transcript: extra?.transcript,
+    tone: extra?.tone,
     suggestedReplies,
     sawImage,
     usage: {
@@ -233,36 +258,48 @@ function withUsage(
   };
 }
 
-export function heuristicWingman(goal: WingmanGoal, text: string, sawImage = false): { advice: string; suggestedReplies: string[] } {
+export function heuristicWingman(
+  goal: WingmanGoal,
+  text: string,
+  sawImage = false,
+  ocr = "",
+): { advice: string; suggestedReplies: string[]; analysis: string; transcript: string; tone: string } {
+  const transcript = ocr.slice(0, 800);
+  const tone = /haha|lol|lmao|😂/i.test(ocr + text) ? "playful" : "neutral";
+  const pack = (advice: string, suggestedReplies: string[]) => ({
+    advice,
+    suggestedReplies,
+    analysis: transcript
+      ? `${advice}\n\nI read this from the screenshot:\n${transcript}`
+      : advice,
+    transcript,
+    tone,
+  });
   if (sawImage && !text) {
-    return {
-      advice:
-        "I received the screenshot and billed this as a vision turn. The thread needs one specific callback to something they already said — then a question that is easy to answer.",
-      suggestedReplies: [
+    return pack(
+      "I received the screenshot and billed this as a vision turn. The thread needs one specific callback to something they already said — then a question that is easy to answer.",
+      [
         "Wait, go back to that thing you mentioned — what happened after?",
         "Okay that actually made me smile. Tell me the rest.",
       ],
-    };
+    );
   }
   if (goal === "reply") {
-    return {
-      advice: "Mirror one specific detail they shared, then ask a follow-up that is easy to answer. Avoid stacking compliments.",
-      suggestedReplies: [
-        "Wait — that actually sounds fun. What made you pick that?",
-        "Okay I need the short version and the real version.",
-      ],
-    };
+    return pack("Mirror one specific detail they shared, then ask a follow-up that is easy to answer. Avoid stacking compliments.", [
+      "Wait — that actually sounds fun. What made you pick that?",
+      "Okay I need the short version and the real version.",
+    ]);
   }
   if (goal === "strategy") {
-    return {
-      advice: "Slow the pace: one thoughtful text, then let them invest. Callback to a shared detail beats a generic pickup line.",
-      suggestedReplies: ["You still owe me the rest of that story.", "Random, but that thing you said earlier stuck with me."],
-    };
+    return pack("Slow the pace: one thoughtful text, then let them invest. Callback to a shared detail beats a generic pickup line.", [
+      "You still owe me the rest of that story.",
+      "Random, but that thing you said earlier stuck with me.",
+    ]);
   }
-  return {
-    advice: text
+  return pack(
+    text
       ? "The energy is fine if you stay specific. Drop anything generic and ask one question that shows you actually read them."
       : "Upload the chat or paste the last few lines so I can judge the actual rhythm.",
-    suggestedReplies: ["That’s fair — what would a good next step look like for you?", "I like how you put that."],
-  };
+    ["That’s fair — what would a good next step look like for you?", "I like how you put that."],
+  );
 }

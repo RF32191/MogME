@@ -55,6 +55,7 @@ struct TrainView: View {
                 }
             }
             .navigationTitle("Train")
+            .crownToolbar()
             .navigationDestination(isPresented: $openWalk) {
                 JapaneseWalkingView(history: history)
             }

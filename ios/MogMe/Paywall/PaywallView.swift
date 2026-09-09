@@ -9,7 +9,7 @@ struct PaywallView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("MogMe Lifetime")
                     .font(.largeTitle.bold())
-                Text("One-time unlock for \(store.displayPrice). Apple Pay, card, and Restore all grant the same premium access.")
+                Text("MogMe.Lifetime.60 is the lifetime SKU. It is \(StoreKitManager.listedPrice) — not $60. Apple Pay, card, and Restore all unlock the same premium.")
                     .foregroundStyle(MogTheme.muted)
                 MogCard {
                     VStack(alignment: .leading, spacing: 8) {
@@ -32,7 +32,7 @@ struct PaywallView: View {
                     .frame(maxWidth: .infinity)
                     .disabled(store.isLoading)
                 if store.product == nil, !store.isUnlocked {
-                    Text("If StoreKit has not loaded MogMe.Lifetime.60 yet, tap Unlock anyway — Debug builds grant premium so you can test, and Restore still applies a real App Store receipt.")
+                    Text("If the $4.99 product is missing, enable Products.storekit on the MogMe scheme (Debug) or Restore a real App Store receipt.")
                         .font(.footnote)
                         .foregroundStyle(MogTheme.muted)
                 }

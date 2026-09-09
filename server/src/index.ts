@@ -8,6 +8,7 @@ import { rizzRouter } from "./routes/rizz.js";
 import { companionRouter } from "./routes/companion.js";
 import { trendsRouter } from "./routes/trends.js";
 import { wingmanRouter } from "./routes/wingman.js";
+import { foodRouter } from "./routes/food.js";
 import { attachWebSocket } from "./ws.js";
 
 const app = express();
@@ -30,6 +31,7 @@ app.use("/rizz", rizzRouter);
 app.use("/companion", companionRouter);
 app.use("/trends", trendsRouter);
 app.use("/wingman", wingmanRouter);
+app.use("/food", foodRouter);
 
 const server = http.createServer(app);
 attachWebSocket(server);

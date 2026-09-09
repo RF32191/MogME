@@ -16,15 +16,15 @@ struct HomeView: View {
                                 Text("MogMe").font(.largeTitle.bold())
                                 Text("Looks, fitness, diet, and social — one lifestyle stack.")
                                     .foregroundStyle(MogTheme.muted)
-                                Text(store.isUnlocked ? "Lifetime unlocked" : "Lifetime \(store.displayPrice)")
+                                Text(store.isUnlocked ? "Lifetime unlocked" : "Lifetime \(StoreKitManager.listedPrice)")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(MogTheme.gold)
                             }
                         }
 
                         if !store.isUnlocked {
-                            NavigationLink { PaywallView() } label: {
-                                Label("Unlock everything \(store.displayPrice)", systemImage: "lock.open.fill")
+                            Button { store.showPaywall = true } label: {
+                                Label("Unlock lifetime \(StoreKitManager.listedPrice)", systemImage: "crown.fill")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(GoldButtonStyle())
@@ -55,6 +55,7 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Home")
+            .crownToolbar()
         }
     }
 

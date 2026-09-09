@@ -39,6 +39,7 @@ struct SocialView: View {
                 }
             }
             .navigationTitle("Social")
+            .crownToolbar()
         }
     }
 }
