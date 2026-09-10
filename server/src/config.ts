@@ -38,9 +38,16 @@ export const config = {
   eloK: num("ELO_K", 32),
   eloStart: num("ELO_START", 1000),
 
-  // LLM (AI rizz)
+  // LLM (AI rizz + wingman). gpt-4o-mini keeps Railway token cost low.
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   rizzModel: process.env.RIZZ_MODEL ?? "gpt-4o-mini",
+  wingmanModel: process.env.WINGMAN_MODEL ?? process.env.RIZZ_MODEL ?? "gpt-4o-mini",
+  wingmanMaxTokens: num("WINGMAN_MAX_TOKENS", 420),
+  // 5 free AI messages/day. Tokens.Mogme adds 100 purchased message tokens.
+  aiDailyRequestCap: num("AI_DAILY_REQUEST_CAP", num("WINGMAN_DAILY_REQUEST_CAP", 5)),
+  aiDailyTokenCap: num("AI_DAILY_TOKEN_CAP", num("WINGMAN_DAILY_TOKEN_CAP", 5)),
+  wingmanDailyRequestCap: num("AI_DAILY_REQUEST_CAP", num("WINGMAN_DAILY_REQUEST_CAP", 5)),
+  wingmanDailyTokenCap: num("AI_DAILY_TOKEN_CAP", num("WINGMAN_DAILY_TOKEN_CAP", 5)),
 
   // Moderation (image + text). Wire real providers via these.
   moderationEnabled: process.env.MODERATION_ENABLED === "true",
@@ -48,6 +55,13 @@ export const config = {
 
   // Uploaded distorted-face image retention (ms). Short by default to limit liability.
   imageRetentionMs: num("IMAGE_RETENTION_MS", 5 * 60_000),
+
+  // Google Images food ID: Cloud Vision web detection (reverse image) +
+  // Programmable Search image results. Calories still come from USDA / OFF.
+  googleVisionApiKey: process.env.GOOGLE_VISION_API_KEY ?? process.env.GOOGLE_API_KEY ?? "",
+  googleCseApiKey: process.env.GOOGLE_CSE_API_KEY ?? process.env.GOOGLE_API_KEY ?? "",
+  googleCseCx: process.env.GOOGLE_CSE_CX ?? "",
+  foodIdentifyDailyCap: num("FOOD_IDENTIFY_DAILY_CAP", 40),
 } as const;
 
 export type RoundName = (typeof config.rounds)[number];

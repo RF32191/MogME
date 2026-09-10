@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { randomPersona, RIZZ_PERSONAS } from "./data/personas.js";
 import { moderateText } from "./moderation.js";
 import type { RizzPersona } from "./types.js";
+import { aiBudget, aiUsagePayload, estimateTokensFromText, type AIUsagePayload } from "./tokens.js";
 
 /**
  * Single-player "Rizz Trainer" — a standalone practice/coaching mode (NOT the
@@ -120,9 +121,10 @@ export interface PracticeTurnResult {
   turns: number;
   won: boolean;
   outOfTurns: boolean;
+  usage?: AIUsagePayload;
 }
 
-export async function practiceTurn(session: PracticeSession, rawText: string): Promise<PracticeTurnResult> {
+export async function practiceTurn(session: PracticeSession, rawText: string, userKey = "anon"): Promise<PracticeTurnResult> {
   if (session.won) {
     return { ok: false, reason: "already-won", affection: session.affection, turns: session.turns, won: true, outOfTurns: false };
   }
@@ -132,6 +134,20 @@ export async function practiceTurn(session: PracticeSession, rawText: string): P
   const text = rawText.trim().slice(0, 500);
   if (!text) {
     return { ok: false, reason: "empty", affection: session.affection, turns: session.turns, won: false, outOfTurns: false };
+  }
+
+  const projected = estimateTokensFromText(text) + 220;
+  const gate = aiBudget.canSpend(userKey, projected);
+  if (!gate.ok) {
+    return {
+      ok: false,
+      reason: gate.reason,
+      affection: session.affection,
+      turns: session.turns,
+      won: session.won,
+      outOfTurns: false,
+      usage: aiUsagePayload(userKey),
+    };
   }
 
   const mod = await moderateText(text);
@@ -164,7 +180,18 @@ export async function practiceTurn(session: PracticeSession, rawText: string): P
   if (outOfTurns) session.endedAt = Date.now();
   session.lastActive = Date.now();
 
-  return { ok: true, reply, tip, affection: session.affection, turns: session.turns, won: session.won, outOfTurns };
+  const outTok = estimateTokensFromText(`${reply}\n${tip ?? ""}`);
+  aiBudget.record(userKey, projected, outTok);
+  return {
+    ok: true,
+    reply,
+    tip,
+    affection: session.affection,
+    turns: session.turns,
+    won: session.won,
+    outOfTurns,
+    usage: aiUsagePayload(userKey, { inputTokens: projected, outputTokens: outTok }),
+  };
 }
 
 async function generateReply(

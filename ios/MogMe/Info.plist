@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>MogMe</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>MogMe photographs meals so you can save them locally and look up calories by the package name or label text.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MogMe can use a library photo of a meal or a chat screenshot for Diet and Wingman.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MogMe only writes meal photos into its own sandbox unless you export them.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MogMe uses GPS while Japanese walking and interval cardio are running so distance and the route stay accurate.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>MogMe can keep GPS running if you lock the phone mid-workout so the walk or cardio session does not drop.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>MogMe can use motion to stabilize workout pace when GPS is noisy.</string>
+	<key>NSSiriUsageDescription</key>
+	<string>Siri can log foods, start Japanese walking or interval cardio, and hand a prompt to Wingman.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Optional voice for Siri shortcuts only.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+</dict>
+</plist>

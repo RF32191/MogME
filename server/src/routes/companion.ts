@@ -6,6 +6,7 @@ import { companionReply } from "../companion.js";
 export const companionRouter = Router();
 
 const Body = z.object({
+  userKey: z.string().min(1).max(80).optional(),
   persona: z.object({
     name: z.string().min(1).max(40),
     age: z.number().int().min(18).max(99),
@@ -30,7 +31,11 @@ companionRouter.post("/message", async (req, res) => {
     res.status(400).json({ error: "bad-request" });
     return;
   }
-  const { persona, history, text } = parsed.data;
-  const result = await companionReply(persona, history ?? [], text);
+  const { persona, history, text, userKey } = parsed.data;
+  const result = await companionReply(persona, history ?? [], text, userKey ?? "anon");
+  if (!result.ok && (result.reason === "daily-request-cap" || result.reason === "daily-token-cap")) {
+    res.status(429).json(result);
+    return;
+  }
   res.json(result);
 });

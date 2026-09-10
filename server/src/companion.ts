@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { config } from "./config.js";
 import { moderateText } from "./moderation.js";
+import { aiBudget, aiUsagePayload, estimateTokensFromText, type AIUsagePayload } from "./tokens.js";
 
 /**
  * AI Companion: an ongoing, user-customized companion chat. Stateless on the
@@ -79,15 +80,23 @@ export interface CompanionResult {
   ok: boolean;
   reply: string;
   reason?: string;
+  usage?: AIUsagePayload;
 }
 
 export async function companionReply(
   persona: CompanionPersona,
   history: CompanionMsg[],
   text: string,
+  userKey = "anon",
 ): Promise<CompanionResult> {
   const trimmed = text.trim().slice(0, 1000);
   if (!trimmed) return { ok: false, reply: "", reason: "empty" };
+
+  const projected = estimateTokensFromText(trimmed) + 180;
+  const gate = aiBudget.canSpend(userKey, projected);
+  if (!gate.ok) {
+    return { ok: false, reply: "", reason: gate.reason, usage: aiUsagePayload(userKey) };
+  }
 
   const mod = await moderateText(trimmed);
   if (!mod.approved) {
@@ -95,7 +104,11 @@ export async function companionReply(
   }
 
   const client = getOpenAI();
-  if (!client) return { ok: true, reply: heuristicReply(persona, trimmed) };
+  if (!client) {
+    const reply = heuristicReply(persona, trimmed);
+    aiBudget.record(userKey, projected, estimateTokensFromText(reply));
+    return { ok: true, reply, usage: aiUsagePayload(userKey, { inputTokens: projected, outputTokens: estimateTokensFromText(reply) }) };
+  }
 
   const messages = [
     { role: "system" as const, content: buildSystem(persona) },
@@ -115,9 +128,14 @@ export async function companionReply(
     // Moderate the model output before it reaches the user.
     const outMod = await moderateText(reply);
     if (!outMod.approved) reply = safeDeflection(persona);
-    return { ok: true, reply };
+    const inTok = completion.usage?.prompt_tokens ?? projected;
+    const outTok = completion.usage?.completion_tokens ?? estimateTokensFromText(reply);
+    aiBudget.record(userKey, inTok, outTok);
+    return { ok: true, reply, usage: aiUsagePayload(userKey, { inputTokens: inTok, outputTokens: outTok }) };
   } catch {
-    return { ok: true, reply: heuristicReply(persona, trimmed) };
+    const reply = heuristicReply(persona, trimmed);
+    aiBudget.record(userKey, projected, estimateTokensFromText(reply));
+    return { ok: true, reply, usage: aiUsagePayload(userKey, { inputTokens: projected, outputTokens: estimateTokensFromText(reply) }) };
   }
 }
 

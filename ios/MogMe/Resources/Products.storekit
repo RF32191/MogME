@@ -1,0 +1,105 @@
+{
+  "identifier" : "MogMeStore",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "6758647492",
+      "localizations" : [
+        {
+          "description" : "Unlock all MogMe Premium features with one purchase.",
+          "displayName" : "One-Time-Purchase",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "MogMe.Lifetime.60",
+      "referenceName" : "47",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6810475672",
+      "localizations" : [
+        {
+          "description" : "100 AI tokens for Rizz, Companion, Wingman, and Mog-Off.",
+          "displayName" : "100 AI Tokens",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "Tokens.Mogme",
+      "referenceName" : "54",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6757411615",
+    "_developerTeamID" : "DHA828G7P3"
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "MogMEPremium",
+      "localizations" : [
+
+      ],
+      "name" : "MogME Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "5.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6758647601",
+          "localizations" : [
+            {
+              "description" : "MogME Monthly. Billed monthly.",
+              "displayName" : "MogME Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "MogMe.Premium.Monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "monthly",
+          "subscriptionGroupID" : "MogMEPremium",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "29.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6758647602",
+          "localizations" : [
+            {
+              "description" : "MogME Annual. Save over 50%.",
+              "displayName" : "MogME Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "MogMe.Premium.Annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "annual",
+          "subscriptionGroupID" : "MogMEPremium",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
