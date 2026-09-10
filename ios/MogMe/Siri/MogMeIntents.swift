@@ -41,18 +41,45 @@ struct MogMeShortcuts: AppShortcutsProvider {
     }
 }
 
+struct MogMeSpokenText: AppEntity, Sendable {
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Text")
+    static var defaultQuery = MogMeSpokenTextQuery()
+
+    var id: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(id)")
+    }
+}
+
+struct MogMeSpokenTextQuery: EntityStringQuery {
+    func entities(for identifiers: [MogMeSpokenText.ID]) async throws -> [MogMeSpokenText] {
+        identifiers.map { MogMeSpokenText(id: $0) }
+    }
+
+    func entities(matching string: String) async throws -> [MogMeSpokenText] {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        return [MogMeSpokenText(id: trimmed)]
+    }
+
+    func suggestedEntities() async throws -> [MogMeSpokenText] {
+        ["chicken", "rice", "apple", "what should I text back"].map { MogMeSpokenText(id: $0) }
+    }
+}
+
 struct SearchFoodCaloriesIntent: AppIntent {
     static var title: LocalizedStringResource = "Search food calories"
     static var description = IntentDescription("Look up calories by food name. No AI — Open Food Facts plus the on-device catalog.")
     static var openAppWhenRun = true
 
     @Parameter(title: "Food")
-    var food: String
+    var food: MogMeSpokenText
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        NotificationCenter.default.post(name: .mogMeOpenFood, object: food)
-        return .result(dialog: "Opening Diet to look up \(food).")
+        NotificationCenter.default.post(name: .mogMeOpenFood, object: food.id)
+        return .result(dialog: "Opening Diet to look up \(food.id).")
     }
 }
 
@@ -83,11 +110,11 @@ struct AskWingmanIntent: AppIntent {
     static var openAppWhenRun = true
 
     @Parameter(title: "Prompt")
-    var prompt: String
+    var prompt: MogMeSpokenText
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        NotificationCenter.default.post(name: .mogMeWingman, object: prompt)
+        NotificationCenter.default.post(name: .mogMeWingman, object: prompt.id)
         return .result(dialog: "Opening Wingman with that text.")
     }
 }
