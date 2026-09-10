@@ -147,9 +147,9 @@ struct WingmanView: View {
                 Text("Strategy").tag("strategy")
             }
             .pickerStyle(.segmented)
-            if let chatImage {
+            if let attached = chatImage {
                 HStack {
-                    Image(uiImage: chatImage)
+                    Image(uiImage: attached)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 56, height: 56)
