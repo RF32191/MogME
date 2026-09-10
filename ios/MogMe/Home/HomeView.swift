@@ -30,7 +30,7 @@ struct HomeView: View {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             quick("Diet", "\(Int(meals.todayCalories)) kcal today", .diet, "fork.knife")
                             quick("Japanese walk", "3 / 3 intervals", .train, "figure.walk")
-                            quick("Wingman", appState.aiQuota.tokenLine, .social, "bubble.left.and.text.bubble.right.fill")
+                            quick("Wingman", appState.aiQuota.tokenLine, .play, "sparkle.magnifyingglass")
                             quick("Rizz Trainer", "Token-metered", .play, "flame.fill")
                         }
 
