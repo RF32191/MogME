@@ -266,7 +266,10 @@ actor FoodLookupService {
     }
 
     private func recognizeText(_ image: UIImage) async -> String {
-        guard let cg = await MainActor.run({ image.orientedCGImage }) else { return "" }
+        let cg: CGImage? = await MainActor.run {
+            image.orientedCGImage
+        }
+        guard let cg else { return "" }
         return await withCheckedContinuation { continuation in
             let request = VNRecognizeTextRequest { request, _ in
                 let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
@@ -287,7 +290,10 @@ actor FoodLookupService {
     }
 
     private func classifyFood(_ image: UIImage) async -> [String] {
-        guard let cg = await MainActor.run({ image.orientedCGImage }) else { return [] }
+        let cg: CGImage? = await MainActor.run {
+            image.orientedCGImage
+        }
+        guard let cg else { return [] }
         return await withCheckedContinuation { continuation in
             let request = VNClassifyImageRequest { request, _ in
                 let observations = (request.results as? [VNClassificationObservation]) ?? []

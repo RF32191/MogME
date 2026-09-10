@@ -171,7 +171,10 @@ final class WingmanService: ObservableObject {
     }
 
     static func readChatText(_ image: UIImage) async -> String {
-        guard let cg = await MainActor.run({ image.cgImage }) else { return "" }
+        let cg: CGImage? = await MainActor.run {
+            image.cgImage
+        }
+        guard let cg else { return "" }
         return await withCheckedContinuation { continuation in
             let request = VNRecognizeTextRequest { request, _ in
                 let lines = ((request.results as? [VNRecognizedTextObservation]) ?? [])
