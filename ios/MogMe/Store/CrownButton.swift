@@ -35,10 +35,9 @@ struct MembershipCrownCard: View {
     @EnvironmentObject private var store: StoreKitManager
 
     var body: some View {
-        VStack(spacing: 12) {
-            Button {
-                store.showPaywall = true
-            } label: {
+        Button {
+            store.showPaywall = true
+        } label: {
                 MogCard {
                     HStack(alignment: .center, spacing: 14) {
                         Image(systemName: "crown.fill")
@@ -69,21 +68,8 @@ struct MembershipCrownCard: View {
                     }
                 }
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("homeMembershipCrown")
-
-            MogCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Token packs", systemImage: "bag.fill")
-                        .font(.headline)
-                        .foregroundStyle(MogTheme.gold)
-                    Text("1 token = 1 game or AI message. \(AIQuota.dailyFreeTokens) free every day.")
-                        .font(.caption)
-                        .foregroundStyle(MogTheme.muted)
-                    TokenPackRow()
-                }
-            }
-        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("homeMembershipCrown")
     }
 }
 

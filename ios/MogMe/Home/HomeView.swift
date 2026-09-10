@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var appState: AppState
-    @EnvironmentObject private var store: StoreKitManager
     @EnvironmentObject private var meals: MealStore
 
     var body: some View {
@@ -66,23 +65,16 @@ struct HomeView: View {
     private var tokenWallet: some View {
         MogCard {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Tokens").font(.headline)
-                    Spacer()
-                    Button("Open") { store.showTokens = true }
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(MogTheme.gold)
-                }
+                Text("Tokens").font(.headline)
                 Text("\(appState.aiQuota.walletBalance.formatted())")
                     .font(.system(size: 44, weight: .bold))
                     .foregroundStyle(MogTheme.gold)
                 Text("1 token = 1 game or AI message")
                     .font(.subheadline)
                     .foregroundStyle(MogTheme.muted)
-                Text("You get \(AIQuota.dailyFreeTokens) free every day.")
+                Text("You get \(AIQuota.dailyFreeTokens) free every day. Buy more only when an AI feature needs it.")
                     .font(.footnote)
                     .foregroundStyle(MogTheme.muted)
-                TokenPackRow()
             }
         }
     }

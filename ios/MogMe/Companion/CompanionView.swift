@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CompanionView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var store: StoreKitManager
     @State private var name = "Avery"
     @State private var tone = "friend"
     @State private var draft = ""
@@ -32,7 +33,6 @@ struct CompanionView: View {
                         }
                     }
                 }
-                TokenBuyBar()
                 if let err = appState.aiQuota.lastError {
                     Text(err).font(.footnote).foregroundStyle(.red)
                 }
@@ -40,9 +40,9 @@ struct CompanionView: View {
                     TextField("Message", text: $draft, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                     Button("Send") { Task { await send() } }
-                        .buttonStyle(GoldButtonStyle(enabled: !busy && !appState.aiQuota.isExhausted))
+                        .buttonStyle(GoldButtonStyle(enabled: !busy))
                         .frame(width: 90)
-                        .disabled(busy || appState.aiQuota.isExhausted)
+                        .disabled(busy)
                 }
             }
             .padding(20)
@@ -52,12 +52,9 @@ struct CompanionView: View {
     }
 
     private func send() async {
-        if appState.aiQuota.isExhausted {
-            log.append("Token pool is empty. Buy 100 tokens for \(StoreKitManager.tokenListedPrice).")
-            return
-        }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        guard store.offerTokensIfNeeded(appState.aiQuota) else { return }
         draft = ""
         log.append("You: \(text)")
         busy = true
@@ -91,9 +88,11 @@ struct CompanionView: View {
             if res.ok {
                 log.append("\(name): \(res.reply)")
             } else {
-                log.append(res.reason == "daily-request-cap" || res.reason == "daily-token-cap"
-                    ? "Token pool is empty. Buy 100 tokens for \(StoreKitManager.tokenListedPrice)."
-                    : (res.reply.isEmpty ? (res.reason ?? "Blocked") : res.reply))
+                if res.reason == "daily-request-cap" || res.reason == "daily-token-cap" {
+                    store.showTokens = true
+                } else {
+                    log.append(res.reply.isEmpty ? (res.reason ?? "Blocked") : res.reply)
+                }
             }
         } catch {
             log.append("Couldn't reach companion: \(error.localizedDescription)")

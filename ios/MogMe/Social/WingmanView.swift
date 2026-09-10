@@ -3,6 +3,7 @@ import PhotosUI
 
 struct WingmanView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var store: StoreKitManager
     @EnvironmentObject private var partners: PartnerMemoryStore
     @StateObject private var service = WingmanService()
     @State private var goal = "evaluate"
@@ -171,21 +172,29 @@ struct WingmanView: View {
                         .font(.title)
                         .foregroundStyle(service.busy ? MogTheme.muted : MogTheme.gold)
                 }
-                .disabled(service.busy || appState.aiQuota.isExhausted)
+                .disabled(service.busy)
             }
             HStack {
-                Button { cameraOpen = true } label: {
+                Button {
+                    guard store.offerTokensIfNeeded(appState.aiQuota) else { return }
+                    cameraOpen = true
+                } label: {
                     Label("Live shot", systemImage: "camera.fill")
                 }
-                .disabled(appState.aiQuota.isExhausted)
-                PhotosPicker(selection: $pickerItem, matching: .images) {
-                    Label("Library", systemImage: "photo")
+                if appState.aiQuota.isExhausted {
+                    Button {
+                        store.showTokens = true
+                    } label: {
+                        Label("Library", systemImage: "photo")
+                    }
+                } else {
+                    PhotosPicker(selection: $pickerItem, matching: .images) {
+                        Label("Library", systemImage: "photo")
+                    }
                 }
-                .disabled(appState.aiQuota.isExhausted)
                 Spacer()
             }
             .font(.caption)
-            TokenBuyBar()
             Text(service.usageText).font(.caption2).foregroundStyle(MogTheme.muted)
         }
         .padding(12)
@@ -220,6 +229,7 @@ struct WingmanView: View {
     }
 
     private func attachAndAnalyze(_ image: UIImage) async {
+        guard store.offerTokensIfNeeded(appState.aiQuota) else { return }
         savePartner()
         chatImage = image
         await service.advise(
@@ -237,6 +247,7 @@ struct WingmanView: View {
     }
 
     private func ask() async {
+        guard store.offerTokensIfNeeded(appState.aiQuota) else { return }
         savePartner()
         let outgoing = text
         let image = chatImage

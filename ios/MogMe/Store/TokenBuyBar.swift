@@ -70,6 +70,11 @@ struct TokensStoreView: View {
                     Text("\(appState.aiQuota.walletBalance.formatted())")
                         .font(.system(size: 64, weight: .bold))
                         .foregroundStyle(tokenInk)
+                    if appState.aiQuota.isExhausted {
+                        Text("You're out of tokens")
+                            .font(.headline)
+                            .foregroundStyle(tokenGold)
+                    }
                     Text("tokens · 1 token = 1 game or AI message")
                         .font(.subheadline)
                         .foregroundStyle(tokenMuted)

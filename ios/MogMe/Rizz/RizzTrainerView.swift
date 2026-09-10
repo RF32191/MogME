@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RizzTrainerView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var store: StoreKitManager
     @State private var goal = "open"
     @State private var difficulty = "medium"
     @State private var sessionId: String?
@@ -44,14 +45,13 @@ struct RizzTrainerView: View {
                 TextField("Your line", text: $draft, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...5)
-                TokenBuyBar()
                 HStack {
                     Button("Start") { Task { await start() } }
                         .buttonStyle(.bordered)
-                        .disabled(busy || appState.aiQuota.isExhausted)
+                        .disabled(busy)
                     Button("Send") { Task { await send() } }
-                        .buttonStyle(GoldButtonStyle(enabled: sessionId != nil && !busy && !appState.aiQuota.isExhausted))
-                        .disabled(sessionId == nil || busy || appState.aiQuota.isExhausted)
+                        .buttonStyle(GoldButtonStyle(enabled: sessionId != nil && !busy))
+                        .disabled(sessionId == nil || busy)
                 }
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }
                 Spacer()
@@ -65,10 +65,7 @@ struct RizzTrainerView: View {
     private var client: APIClient { APIClient(baseURL: appState.apiBaseURL) }
 
     private func start() async {
-        if appState.aiQuota.isExhausted {
-            error = "Token pool is empty. Buy 100 tokens for \(StoreKitManager.tokenListedPrice)."
-            return
-        }
+        guard store.offerTokensIfNeeded(appState.aiQuota) else { return }
         busy = true
         defer { busy = false }
         do {
@@ -86,10 +83,7 @@ struct RizzTrainerView: View {
 
     private func send() async {
         guard let sessionId else { return }
-        if appState.aiQuota.isExhausted {
-            error = "Token pool is empty. Buy 100 tokens for \(StoreKitManager.tokenListedPrice)."
-            return
-        }
+        guard store.offerTokensIfNeeded(appState.aiQuota) else { return }
         let text = draft
         draft = ""
         busy = true
@@ -101,7 +95,7 @@ struct RizzTrainerView: View {
             )
             if let usage = res.usage { appState.aiQuota.apply(usage) }
             if res.ok == false, res.reason == "daily-request-cap" || res.reason == "daily-token-cap" {
-                error = "Token pool is empty. Buy 100 tokens for \(StoreKitManager.tokenListedPrice)."
+                store.showTokens = true
                 return
             }
             reply = res.reply ?? reply

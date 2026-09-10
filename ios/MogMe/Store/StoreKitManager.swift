@@ -121,6 +121,15 @@ final class StoreKitManager: ObservableObject {
         }
     }
 
+    /// Returns true when the user can spend an AI turn. If the wallet is empty,
+    /// opens the Tokens.Mogme buy sheet instead of blocking the feature silently.
+    @discardableResult
+    func offerTokensIfNeeded(_ quota: AIQuota) -> Bool {
+        guard quota.isExhausted else { return true }
+        showTokens = true
+        return false
+    }
+
     func purchaseTokens(_ pack: Product? = nil) async {
         let item = pack ?? tokenProduct
         let amount = item.flatMap { Self.tokenProductIDs[$0.id] } ?? Self.tokensPerPack
