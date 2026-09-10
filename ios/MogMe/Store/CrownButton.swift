@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Big enough to see. Opens membership: plan, lifetime, and the $4.99 price.
+/// Big enough to see. Opens membership: plan, lifetime, and the live App Store price.
 struct CrownButton: View {
     @EnvironmentObject private var store: StoreKitManager
 
@@ -11,7 +11,7 @@ struct CrownButton: View {
             VStack(spacing: 2) {
                 Image(systemName: "crown.fill")
                     .font(.title2.weight(.bold))
-                Text(StoreKitManager.listedPrice)
+                Text(store.displayPrice)
                     .font(.caption2.weight(.heavy))
             }
             .foregroundStyle(Color.black)
@@ -22,8 +22,8 @@ struct CrownButton: View {
             .shadow(color: MogTheme.gold.opacity(0.45), radius: 8, y: 2)
             .accessibilityLabel(
                 store.isUnlocked
-                    ? "Membership: lifetime \(StoreKitManager.listedPrice) is active"
-                    : "Membership: lifetime \(StoreKitManager.listedPrice)"
+                    ? "Membership: lifetime \(store.displayPrice) is active"
+                    : "Membership: lifetime \(store.displayPrice)"
             )
         }
         .buttonStyle(.plain)
@@ -53,7 +53,7 @@ struct MembershipCrownCard: View {
                         Text(store.isUnlocked ? "Lifetime" : "Not subscribed")
                             .font(.title3.bold())
                             .foregroundStyle(.white)
-                        Text("Lifetime · \(StoreKitManager.listedPrice)")
+                        Text("Lifetime · \(store.displayPrice)")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(MogTheme.gold)
                         Text(store.isUnlocked

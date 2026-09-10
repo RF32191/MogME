@@ -1,8 +1,7 @@
 import Foundation
 import StoreKit
 
-/// App Store Connect lifetime unlock.
-/// Product ID: MogMe.Lifetime.60 (the "$60" SKU) is sold at $4.99.
+/// App Store Connect lifetime unlock: MogMe.Lifetime.60 at $4.99.
 @MainActor
 final class StoreKitManager: ObservableObject {
     static let lifetimeProductID = "MogMe.Lifetime.60"
@@ -27,9 +26,10 @@ final class StoreKitManager: ObservableObject {
 
     private var updatesTask: Task<Void, Never>?
 
-    /// Always advertise $4.99 for the Lifetime.60 SKU. StoreKit's live price is
-    /// used only if Apple actually returns that same $4.99 product.
-    var displayPrice: String { Self.listedPrice }
+    /// Live App Store price for MogMe.Lifetime.60. Falls back to $4.99 until StoreKit loads.
+    var displayPrice: String {
+        product?.displayPrice ?? Self.listedPrice
+    }
 
     deinit {
         updatesTask?.cancel()
@@ -58,7 +58,7 @@ final class StoreKitManager: ObservableObject {
         defer { isLoading = false }
         if product == nil { await load() }
         guard let product else {
-            lastError = "MogMe.Lifetime.60 ($4.99) is not in this StoreKit environment. Open the scheme’s Products.storekit file, or Restore a real receipt."
+            lastError = "\(Self.lifetimeProductID) (\(Self.listedPrice)) is not in this StoreKit environment. Open Products.storekit, or Restore a real receipt."
             return
         }
         do {
@@ -99,7 +99,7 @@ final class StoreKitManager: ObservableObject {
             await finishUnfinished()
             await refreshEntitlements()
             if !isUnlocked {
-                lastError = "No previous $4.99 lifetime purchase found for this Apple ID."
+                lastError = "No previous lifetime purchase (\(Self.listedPrice)) found for this Apple ID."
             }
         } catch {
             lastError = error.localizedDescription

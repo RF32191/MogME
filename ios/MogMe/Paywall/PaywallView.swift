@@ -28,12 +28,12 @@ struct PaywallView: View {
                             Text(StoreKitManager.storeDisplayName)
                                 .font(.title2.bold())
                                 .foregroundStyle(MogTheme.gold)
-                            Text(StoreKitManager.listedPrice)
+                            Text(store.displayPrice)
                                 .font(.system(size: 42, weight: .bold, design: .rounded))
                                 .foregroundStyle(MogTheme.gold)
                             Text("Unlock all MogMe Premium features with one purchase.")
                                 .font(.subheadline)
-                            Text("Price is \(StoreKitManager.listedPrice) — not $60. Product \(StoreKitManager.lifetimeProductID).")
+                            Text("Current App Store price for \(StoreKitManager.lifetimeProductID).")
                                 .font(.footnote)
                                 .foregroundStyle(MogTheme.muted)
 
@@ -42,7 +42,7 @@ struct PaywallView: View {
                             row("Product ID", StoreKitManager.lifetimeProductID)
                             row("Reference", StoreKitManager.referenceName)
                             row("Apple ID", StoreKitManager.appleProductAppleID)
-                            row("Price", StoreKitManager.listedPrice)
+                            row("Price", store.displayPrice)
                             row("Status", store.isUnlocked ? "Unlocked on this Apple ID" : "Locked — buy or redeem an offer code")
                         }
                     }
@@ -61,7 +61,7 @@ struct PaywallView: View {
                         Button {
                             Task { await store.purchase() }
                         } label: {
-                            Text(store.isLoading ? "Working…" : "Unlock lifetime \(StoreKitManager.listedPrice)")
+                            Text(store.isLoading ? "Working…" : "Unlock lifetime \(store.displayPrice)")
                         }
                         .buttonStyle(GoldButtonStyle(enabled: !store.isLoading))
                     }
