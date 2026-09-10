@@ -4,14 +4,19 @@ This is the Xcode project that contains the $4.99 lifetime and Tokens.Mogme chan
 
 ## Run this build on your iPhone
 
-1. In Terminal, in your MogME clone:
+1. Do **not** run these from `~`. Either `cd` into an existing MogME clone, or clone it first:
    ```bash
+   cd ~
+   git clone https://github.com/RF32191/MogME.git
+   cd MogME
    git fetch origin
    git checkout cursor/mogme-ios-lifetime-wingman-cccc
    git pull origin cursor/mogme-ios-lifetime-wingman-cccc
+   open ios/MogMe.xcodeproj
    ```
+   That opens `/Users/<you>/MogME/ios/MogMe.xcodeproj`.
 2. Close any other MogMe Xcode window (the original App Store source).
-3. Open **this** file: `ios/MogMe.xcodeproj` (not a project from another folder).
+3. Confirm the Xcode title bar says **MogMe** and the path includes `MogME/ios/MogMe.xcodeproj`.
 4. Scheme: **MogMe**. Destination: your iPhone.
 5. Product → Clean Build Folder, then Run (⌘R).
 6. Home must show **v1.5 · Lifetime $4.99 · 100 tokens $0.99**. If you still see $59.99 or Watch an ad, Xcode ran the old app, not this project.
