@@ -21,9 +21,23 @@
 		A1B2C3D40000000100000022 /* MogMeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MogMeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A1B2C3D40000000100000033 /* Exceptions for "MogMe" folder in "MogMe" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				MogMe.entitlements,
+			);
+			target = A1B2C3D40000000100000001 /* MogMe */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A1B2C3D40000000100000031 /* MogMe */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1B2C3D40000000100000033 /* Exceptions for "MogMe" folder in "MogMe" target */,
+			);
 			path = MogMe;
 			sourceTree = "<group>";
 		};
