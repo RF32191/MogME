@@ -5,6 +5,39 @@ struct AIUsageSnapshot: Codable, Hashable {
     var requestsRemaining: Int
     var tokensToday: Int
     var tokensRemaining: Int
+    var dailyTokenCap: Int
+    var dailyRequestCap: Int
+
+    enum CodingKeys: String, CodingKey {
+        case requestsToday, requestsRemaining, tokensToday, tokensRemaining
+        case dailyTokenCap, dailyRequestCap
+    }
+
+    init(
+        requestsToday: Int,
+        requestsRemaining: Int,
+        tokensToday: Int,
+        tokensRemaining: Int,
+        dailyTokenCap: Int = 18_000,
+        dailyRequestCap: Int = 15
+    ) {
+        self.requestsToday = requestsToday
+        self.requestsRemaining = requestsRemaining
+        self.tokensToday = tokensToday
+        self.dailyTokenCap = dailyTokenCap
+        self.dailyRequestCap = dailyRequestCap
+        self.tokensRemaining = tokensRemaining
+    }
+
+    init(from decoder: Decoder) throws {
+        let box = try decoder.container(keyedBy: CodingKeys.self)
+        requestsToday = try box.decodeIfPresent(Int.self, forKey: .requestsToday) ?? 0
+        requestsRemaining = try box.decodeIfPresent(Int.self, forKey: .requestsRemaining) ?? 0
+        tokensToday = try box.decodeIfPresent(Int.self, forKey: .tokensToday) ?? 0
+        tokensRemaining = try box.decodeIfPresent(Int.self, forKey: .tokensRemaining) ?? 0
+        dailyTokenCap = try box.decodeIfPresent(Int.self, forKey: .dailyTokenCap) ?? 18_000
+        dailyRequestCap = try box.decodeIfPresent(Int.self, forKey: .dailyRequestCap) ?? 15
+    }
 }
 
 @MainActor
@@ -17,18 +50,24 @@ final class AIQuota: ObservableObject {
     )
     @Published var lastError: String?
 
-    var line: String {
-        "\(snapshot.requestsRemaining) AI turns left today · not unlimited"
+    var line: String { tokenLine }
+
+    var tokenLine: String {
+        "\(snapshot.tokensRemaining.formatted()) tokens left · not unlimited"
+    }
+
+    var walletDetail: String {
+        "Used \(snapshot.tokensToday.formatted()) of \(snapshot.dailyTokenCap.formatted()) tokens today · \(snapshot.requestsRemaining) turns left"
     }
 
     var isExhausted: Bool {
-        snapshot.requestsRemaining <= 0 || snapshot.tokensRemaining <= 0
+        snapshot.tokensRemaining <= 0 || snapshot.requestsRemaining <= 0
     }
 
     func apply(_ usage: AIUsageSnapshot) {
         snapshot = usage
         if isExhausted {
-            lastError = "Daily AI limit reached. Try again tomorrow."
+            lastError = "AI token pool is empty for today. Not unlimited."
         } else {
             lastError = nil
         }
@@ -36,11 +75,14 @@ final class AIQuota: ObservableObject {
 
     func apply(from dict: [String: Any]) {
         let usage = dict["usage"] as? [String: Any] ?? dict
+        let remaining = dict["remaining"] as? [String: Any]
         apply(AIUsageSnapshot(
             requestsToday: int(usage["requestsToday"]),
-            requestsRemaining: int(usage["requestsRemaining"]),
+            requestsRemaining: int(usage["requestsRemaining"] ?? remaining?["requests"]),
             tokensToday: int(usage["tokensToday"]),
-            tokensRemaining: int(usage["tokensRemaining"])
+            tokensRemaining: int(usage["tokensRemaining"] ?? remaining?["tokens"]),
+            dailyTokenCap: int(usage["dailyTokenCap"] ?? dict["dailyTokenCap"], fallback: 18_000),
+            dailyRequestCap: int(usage["dailyRequestCap"] ?? dict["dailyRequestCap"], fallback: 15)
         ))
     }
 
@@ -60,10 +102,10 @@ final class AIQuota: ObservableObject {
         }
     }
 
-    private func int(_ value: Any?) -> Int {
+    private func int(_ value: Any?, fallback: Int = 0) -> Int {
         if let n = value as? Int { return n }
         if let n = value as? Double { return Int(n) }
-        return 0
+        return fallback
     }
 }
 

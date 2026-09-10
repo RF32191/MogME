@@ -185,7 +185,7 @@ struct WingmanView: View {
                 Spacer()
             }
             .font(.caption)
-            Text(appState.aiQuota.line).font(.caption2).foregroundStyle(MogTheme.muted)
+            Text(appState.aiQuota.tokenLine).font(.caption2).foregroundStyle(MogTheme.muted)
             Text(service.usageText).font(.caption2).foregroundStyle(MogTheme.muted)
         }
         .padding(12)

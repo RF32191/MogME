@@ -19,6 +19,14 @@ test("daily budget blocks after the request cap", () => {
   if (!blocked.ok) assert.equal(blocked.reason, "daily-request-cap");
 });
 
+test("token cap blocks even when request slots remain", () => {
+  const budget = new DailyTokenBudget({ dailyRequestCap: 50, dailyTokenCap: 100 });
+  budget.record("token-user", 80, 15);
+  const blocked = budget.canSpend("token-user", 10);
+  assert.equal(blocked.ok, false);
+  if (!blocked.ok) assert.equal(blocked.reason, "daily-token-cap");
+});
+
 test("wingman projection stays small without an image", () => {
   const tokens = projectWingmanInputTokens({
     userKey: "u",

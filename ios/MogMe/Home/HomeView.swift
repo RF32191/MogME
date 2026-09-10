@@ -11,37 +11,25 @@ struct HomeView: View {
                 MogTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        MogCard {
-                            VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .center) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("MogMe").font(.largeTitle.bold())
-                                Text("Looks, fitness, diet, and social — one lifestyle stack.")
+                                Text("Looks, fitness, diet, and social.")
                                     .foregroundStyle(MogTheme.muted)
-                                Text(store.isUnlocked ? "Lifetime unlocked · \(StoreKitManager.listedPrice)" : "Lifetime \(StoreKitManager.listedPrice)")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(MogTheme.gold)
                             }
+                            Spacer()
+                            CrownButton()
                         }
 
-                        Button { store.showPaywall = true } label: {
-                            Label(
-                                store.isUnlocked
-                                    ? "Membership · Lifetime \(StoreKitManager.listedPrice)"
-                                    : "Unlock lifetime \(StoreKitManager.listedPrice)",
-                                systemImage: "crown.fill"
-                            )
-                            .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(GoldButtonStyle())
+                        MembershipCrownCard()
 
-                        Text(appState.aiQuota.line)
-                            .font(.footnote)
-                            .foregroundStyle(MogTheme.muted)
+                        tokenWallet
 
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             quick("Diet", "\(Int(meals.todayCalories)) kcal today", .diet, "fork.knife")
                             quick("Japanese walk", "3 / 3 intervals", .train, "figure.walk")
-                            quick("Wingman", "Coach a chat", .social, "bubble.left.and.text.bubble.right.fill")
-                            quick("Rizz Trainer", "Practice a close", .play, "flame.fill")
+                            quick("Wingman", appState.aiQuota.tokenLine, .social, "bubble.left.and.text.bubble.right.fill")
+                            quick("Rizz Trainer", "Token-metered", .play, "flame.fill")
                         }
 
                         MogCard {
@@ -52,7 +40,7 @@ struct HomeView: View {
                                     set: { appState.setHandle($0) }
                                 ))
                                 .textFieldStyle(.roundedBorder)
-                                Text("Used for mog-off sign-in and the shared daily AI cap (wingman, companion, rizz).")
+                                Text("Used for mog-off sign-in and your daily AI token wallet.")
                                     .font(.caption)
                                     .foregroundStyle(MogTheme.muted)
                             }
@@ -63,6 +51,39 @@ struct HomeView: View {
             }
             .navigationTitle("Home")
             .crownToolbar()
+            .task {
+                await appState.aiQuota.refresh(
+                    baseURL: appState.apiBaseURL,
+                    userKey: appState.userId ?? appState.handle
+                )
+            }
+        }
+    }
+
+    private var tokenWallet: some View {
+        MogCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("AI token wallet").font(.headline)
+                Text("\(appState.aiQuota.snapshot.tokensRemaining.formatted()) tokens left")
+                    .font(.title2.bold())
+                    .foregroundStyle(MogTheme.gold)
+                ProgressView(
+                    value: Double(max(0, appState.aiQuota.snapshot.dailyTokenCap - appState.aiQuota.snapshot.tokensRemaining)),
+                    total: Double(max(1, appState.aiQuota.snapshot.dailyTokenCap))
+                )
+                .tint(MogTheme.gold)
+                Text(appState.aiQuota.walletDetail)
+                    .font(.footnote)
+                    .foregroundStyle(MogTheme.muted)
+                Text("Wingman, Companion, and Rizz spend tokens. Lifetime does not make AI unlimited.")
+                    .font(.caption)
+                    .foregroundStyle(MogTheme.muted)
+                if appState.aiQuota.isExhausted {
+                    Text("Token pool is empty for today.")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.red)
+                }
+            }
         }
     }
 

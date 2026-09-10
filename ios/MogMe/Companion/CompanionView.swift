@@ -32,7 +32,7 @@ struct CompanionView: View {
                         }
                     }
                 }
-                Text(appState.aiQuota.line)
+                Text(appState.aiQuota.tokenLine)
                     .font(.caption)
                     .foregroundStyle(MogTheme.muted)
                 if let err = appState.aiQuota.lastError {

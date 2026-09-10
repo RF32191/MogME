@@ -23,11 +23,11 @@ struct RootView: View {
                 .tag(AppState.Tab.play)
         }
         .tint(MogTheme.gold)
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .bottomTrailing) {
             CrownButton()
-                .padding(.top, 2)
-                .padding(.trailing, 6)
-                .accessibilityIdentifier("alwaysOnCrown")
+                .padding(.trailing, 16)
+                .padding(.bottom, 58)
+                .accessibilityIdentifier("floatingCrown")
         }
         .sheet(isPresented: $store.showPaywall) {
             NavigationStack {
@@ -50,10 +50,10 @@ struct PlayHubView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         NavigationLink { RizzTrainerView() } label: {
-                            hubRow("Rizz Trainer", "Practice openers, numbers, and dates with live coaching.", "flame.fill")
+                            hubRow("Rizz Trainer", "Practice openers, numbers, and dates with live coaching. Token-metered.", "flame.fill")
                         }
                         NavigationLink { CompanionView() } label: {
-                            hubRow("Companion", "Ongoing on-device persona chat. History never leaves your phone except the last few turns.", "heart.fill")
+                            hubRow("Companion", "On-device persona chat. Each reply spends tokens from the shared daily wallet.", "heart.fill")
                         }
                         NavigationLink { MogOffView() } label: {
                             hubRow("Mog-Off", "Queue for face, cognition, reflex, punch, and rizz rounds.", "trophy.fill")

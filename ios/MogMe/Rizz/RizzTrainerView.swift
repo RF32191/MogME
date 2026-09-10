@@ -50,7 +50,7 @@ struct RizzTrainerView: View {
                     Button("Send") { Task { await send() } }
                         .buttonStyle(GoldButtonStyle(enabled: sessionId != nil && !busy))
                 }
-                Text(appState.aiQuota.line)
+                Text(appState.aiQuota.tokenLine)
                     .font(.caption)
                     .foregroundStyle(MogTheme.muted)
                 if let error { Text(error).font(.footnote).foregroundStyle(.red) }

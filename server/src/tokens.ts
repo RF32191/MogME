@@ -105,6 +105,8 @@ export interface AIUsagePayload {
   requestsRemaining: number;
   tokensToday: number;
   tokensRemaining: number;
+  dailyTokenCap: number;
+  dailyRequestCap: number;
   estimatedCostUsdToday: number;
   thisRequest?: { inputTokens: number; outputTokens: number; estimatedCostUsd: number };
 }
@@ -120,6 +122,8 @@ export function aiUsagePayload(
     requestsRemaining: remaining.requests,
     tokensToday: used.inputTokens + used.outputTokens,
     tokensRemaining: remaining.tokens,
+    dailyTokenCap: config.aiDailyTokenCap,
+    dailyRequestCap: config.aiDailyRequestCap,
     estimatedCostUsdToday: Number(used.estimatedCostUsd.toFixed(5)),
     thisRequest: thisRequest
       ? {

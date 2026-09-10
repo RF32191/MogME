@@ -45,7 +45,10 @@ struct PaywallView: View {
                     MogCard {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Lifetime includes").font(.headline)
-                            Text("Japanese walking, interval GPS, diet photo analytics, wingman screenshot analysis, rizz trainer, companion, mog-off. AI turns share a daily cap — they are not unlimited.")
+                            Text("Japanese walking, interval GPS, diet photo analytics, wingman screenshot analysis, rizz trainer, companion, mog-off.")
+                            Text("AI is token-based. Lifetime does not grant unlimited Wingman, Companion, or Rizz. Those spend the daily token wallet on Home.")
+                                .font(.subheadline)
+                                .foregroundStyle(MogTheme.gold)
                                 .font(.subheadline)
                                 .foregroundStyle(MogTheme.muted)
                         }
