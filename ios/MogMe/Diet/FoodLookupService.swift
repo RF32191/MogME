@@ -63,7 +63,8 @@ actor FoodLookupService {
     }
 
     func identifyWithGoogle(image: UIImage, hints: MealPhotoRead, userKey: String) async -> FoodIdentifyResult? {
-        guard let apiBase, let data = ImageCompressor.jpegForIdentify(image) else { return nil }
+        let jpeg = await MainActor.run { ImageCompressor.jpegForIdentify(image) }
+        guard let apiBase, let data = jpeg else { return nil }
         var url = apiBase
         url.append(path: "food/identify")
         var req = URLRequest(url: url)
@@ -265,7 +266,7 @@ actor FoodLookupService {
     }
 
     private func recognizeText(_ image: UIImage) async -> String {
-        guard let cg = image.orientedCGImage else { return "" }
+        guard let cg = await MainActor.run({ image.orientedCGImage }) else { return "" }
         return await withCheckedContinuation { continuation in
             let request = VNRecognizeTextRequest { request, _ in
                 let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
@@ -286,7 +287,7 @@ actor FoodLookupService {
     }
 
     private func classifyFood(_ image: UIImage) async -> [String] {
-        guard let cg = image.orientedCGImage else { return [] }
+        guard let cg = await MainActor.run({ image.orientedCGImage }) else { return [] }
         return await withCheckedContinuation { continuation in
             let request = VNClassifyImageRequest { request, _ in
                 let observations = (request.results as? [VNClassificationObservation]) ?? []

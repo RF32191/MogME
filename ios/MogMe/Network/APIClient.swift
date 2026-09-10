@@ -54,6 +54,7 @@ enum APIError: LocalizedError {
     }
 }
 
+@MainActor
 enum ImageCompressor {
     /// Chat screenshots stay readable but under Railway's vision budget (~180KB JPEG).
     static func jpegForWingman(_ image: UIImage) -> Data? {
