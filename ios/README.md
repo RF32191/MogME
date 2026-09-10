@@ -24,7 +24,19 @@ The crown paywall always shows **$4.99** for **MogMe.Lifetime.60** (Apple ID `67
 
 ## AI tokens
 
-`Tokens.Mogme` (Apple ID `6810475672`, reference `54`) is the only token pack: **100 tokens for $0.99**. There is no watch-an-ad row and no Unlimited option. 1 token = 1 Rizz / Companion / Wingman / Mog-Off message. Users get 5 free tokens every day. The same pack is on the crown paywall, Home, and the Tokens sheet.
+`Tokens.Mogme` is set up the same way as lifetime in `Resources/Products.storekit`. Submit this consumable in App Store Connect with the next app version:
+
+| Field | Value |
+| --- | --- |
+| Type | Consumable |
+| Product ID | `Tokens.Mogme` |
+| Reference Name | `54` |
+| Apple ID | `6810475672` |
+| Display Name | 100 AI Tokens |
+| Description | 100 AI tokens for Rizz, Companion, Wingman, and Mog-Off. |
+| Price | $0.99 (100 tokens) |
+
+No other token packs. No watch-an-ad. No Unlimited. 1 token = 1 Rizz / Companion / Wingman / Mog-Off message. Users get 5 free tokens every day. The same row sits under the crown paywall next to One-Time-Purchase.
 
 ## Workouts
 
