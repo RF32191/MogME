@@ -48,6 +48,9 @@ struct PlayHubView: View {
                 MogTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 14) {
+                        NavigationLink { WingmanView() } label: {
+                            hubRow("AI Wingman", "Chat screenshots, replies, and strategy. Same token wallet as Rizz and Companion.", "sparkle.magnifyingglass")
+                        }
                         NavigationLink { RizzTrainerView() } label: {
                             hubRow("Rizz Trainer", "Practice openers, numbers, and dates with live coaching. Token-metered.", "flame.fill")
                         }
@@ -55,7 +58,7 @@ struct PlayHubView: View {
                             hubRow("Companion", "On-device persona chat. Each reply spends tokens from the shared daily wallet.", "heart.fill")
                         }
                         NavigationLink { MogOffView() } label: {
-                            hubRow("Mog-Off", "Queue for face, cognition, reflex, punch, and rizz. Rizz turns spend tokens.", "trophy.fill")
+                            hubRow("Mog-Off", "Queue, plus Wingman for live chat help. Rizz turns spend tokens.", "trophy.fill")
                         }
                     }
                     .padding(20)

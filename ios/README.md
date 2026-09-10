@@ -16,6 +16,21 @@ This is the Xcode project that contains the $4.99 lifetime and Tokens.Mogme chan
 5. Product → Clean Build Folder, then Run (⌘R).
 6. Home must show **v1.5 · Lifetime $4.99 · 100 tokens $0.99**. If you still see $59.99 or Watch an ad, Xcode ran the old app, not this project.
 
+## Archive and submit this project
+
+The file to open in Xcode is:
+
+**`ios/MogMe.xcodeproj`**
+
+Full path on this repo: `MogME/ios/MogMe.xcodeproj` (after you clone or pull `cursor/mogme-ios-lifetime-wingman-cccc`).
+
+Then in Xcode:
+
+1. Scheme **MogMe**, Any iOS Device (arm64).
+2. Product → Archive.
+3. Distribute App → App Store Connect.
+4. In App Store Connect, attach consumable **Tokens.Mogme** (`6810475672`) to this version and submit.
+
 Bundle ID is `Fermoselle.MogME-AI` (same as the store app). Xcode will replace the store install while you debug. After you stop, opening the home-screen icon can launch the last Xcode build — delete the app and reinstall from the store if you want the live build back.
 
 ## Lifetime price

@@ -12,6 +12,23 @@ struct MogOffView: View {
                 MogCard {
                     Text(status)
                 }
+                NavigationLink { WingmanView() } label: {
+                    MogCard {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "sparkle.magnifyingglass")
+                                .font(.title2)
+                                .foregroundStyle(MogTheme.gold)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("AI Wingman").font(.headline)
+                                Text("Open Wingman from Mog-Off to read a chat screenshot and draft the next line. Uses the same token wallet.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(MogTheme.muted)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(MogTheme.muted)
+                        }
+                    }
+                }
                 Button("Sign in & remember ID") { Task { await signIn() } }
                     .buttonStyle(GoldButtonStyle())
                 Text("WebSocket matchmaking lives at \(appState.apiBaseURL.absoluteString.replacingOccurrences(of: "https", with: "wss"))/ws")
