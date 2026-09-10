@@ -1,8 +1,22 @@
 # MogMe iOS
 
-Full Xcode project for the live App Store app (`Fermoselle.MogME-AI`, App Store ID 6757411615).
+This is the Xcode project that contains the $4.99 lifetime and Tokens.Mogme changes. The App Store / TestFlight icon on your phone is a **different binary**. GitHub `main` has **no iOS project** — only the Railway server — so server-side food/AI changes show up in the live app, but crown and token UI changes do not until you run **this** project.
 
-Open `ios/MogMe.xcodeproj` on a Mac with Xcode 16+.
+## Run this build on your iPhone
+
+1. In Terminal, in your MogME clone:
+   ```bash
+   git fetch origin
+   git checkout cursor/mogme-ios-lifetime-wingman-cccc
+   git pull origin cursor/mogme-ios-lifetime-wingman-cccc
+   ```
+2. Close any other MogMe Xcode window (the original App Store source).
+3. Open **this** file: `ios/MogMe.xcodeproj` (not a project from another folder).
+4. Scheme: **MogMe**. Destination: your iPhone.
+5. Product → Clean Build Folder, then Run (⌘R).
+6. Home must show **v1.5 · Lifetime $4.99 · 100 tokens $0.99**. If you still see $59.99 or Watch an ad, Xcode ran the old app, not this project.
+
+Bundle ID is `Fermoselle.MogME-AI` (same as the store app). Xcode will replace the store install while you debug. After you stop, opening the home-screen icon can launch the last Xcode build — delete the app and reinstall from the store if you want the live build back.
 
 ## Lifetime price
 

@@ -37,6 +37,9 @@ struct PaywallView: View {
                             .multilineTextAlignment(.center)
                         Text("Get full access to all features")
                             .foregroundStyle(.white.opacity(0.7))
+                        Text("v1.5 · Lifetime \(StoreKitManager.listedPrice) · 100 tokens \(StoreKitManager.tokenListedPrice)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(premiumGold)
                     }
 
                     VStack(spacing: 10) {

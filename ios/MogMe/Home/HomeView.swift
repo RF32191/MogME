@@ -14,6 +14,9 @@ struct HomeView: View {
                         HStack(alignment: .center) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("MogMe").font(.largeTitle.bold())
+                                Text("v1.5 · Lifetime \(StoreKitManager.listedPrice) · 100 tokens \(StoreKitManager.tokenListedPrice)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(MogTheme.gold)
                                 Text("Looks, fitness, diet, and social.")
                                     .foregroundStyle(MogTheme.muted)
                             }
