@@ -35,41 +35,47 @@ struct MembershipCrownCard: View {
     @EnvironmentObject private var store: StoreKitManager
 
     var body: some View {
-        Button {
-            store.showPaywall = true
-        } label: {
-            MogCard {
-                HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 36, weight: .bold))
-                        .foregroundStyle(Color.black)
-                        .frame(width: 64, height: 64)
-                        .background(MogTheme.gold)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Your membership")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(MogTheme.muted)
-                        Text(store.isUnlocked ? "Lifetime" : "Not subscribed")
-                            .font(.title3.bold())
-                            .foregroundStyle(.white)
-                        Text("Lifetime · \(store.displayPrice)")
-                            .font(.subheadline.weight(.semibold))
+        VStack(spacing: 12) {
+            Button {
+                store.showPaywall = true
+            } label: {
+                MogCard {
+                    HStack(alignment: .center, spacing: 14) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundStyle(Color.black)
+                            .frame(width: 64, height: 64)
+                            .background(MogTheme.gold)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Your membership")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(MogTheme.muted)
+                            Text(store.isUnlocked ? "Lifetime" : "Not subscribed")
+                                .font(.title3.bold())
+                                .foregroundStyle(.white)
+                            Text("Lifetime · \(store.displayPrice) · 100 tokens \(store.tokenPrice)")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(MogTheme.gold)
+                            Text(store.isUnlocked
+                                 ? "Tap the crown for membership. Tokens are \(store.tokenPrice) for 100."
+                                 : "Tap the crown for plans. Tokens are \(store.tokenPrice) for 100.")
+                                .font(.caption)
+                                .foregroundStyle(MogTheme.muted)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
                             .foregroundStyle(MogTheme.gold)
-                        Text(store.isUnlocked
-                             ? "Tap the crown to see what you own"
-                             : "Tap the crown to see plans and price")
-                            .font(.caption)
-                            .foregroundStyle(MogTheme.muted)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(MogTheme.gold)
                 }
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("homeMembershipCrown")
+
+            MogCard {
+                TokenBuyBar()
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("homeMembershipCrown")
     }
 }
 

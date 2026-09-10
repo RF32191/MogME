@@ -7,7 +7,6 @@ private let premiumGold = Color(red: 0.97, green: 0.85, blue: 0.22)
 
 struct PaywallView: View {
     @EnvironmentObject private var store: StoreKitManager
-    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         ZStack {
@@ -69,50 +68,7 @@ struct PaywallView: View {
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("AI tokens")
-                            .font(.headline)
-                        Text("Wingman, Companion, and Rizz spend tokens. Lifetime does not make AI unlimited — buy a pack here.")
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.7))
-                        Text("\(store.purchasedTokens.formatted()) purchased tokens on this iPhone")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(premiumGold)
-
-                        if store.tokenProducts.isEmpty {
-                            tokenFallbackRow(tokens: 2_000, price: "$0.99", productID: "MogMe.Tokens.2000")
-                            tokenFallbackRow(tokens: 10_000, price: "$3.99", productID: "MogMe.Tokens.10000")
-                            tokenFallbackRow(tokens: 40_000, price: "$9.99", productID: "MogMe.Tokens.40000")
-                        } else {
-                            ForEach(store.tokenProducts, id: \.id) { pack in
-                                let amount = StoreKitManager.tokenProductIDs[pack.id] ?? 0
-                                Button {
-                                    Task {
-                                        await store.purchaseTokens(pack)
-                                        await creditServer(amount)
-                                    }
-                                } label: {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("\(amount.formatted()) AI tokens")
-                                                .font(.headline)
-                                            Text("For Wingman, Companion, and Rizz")
-                                                .font(.caption)
-                                                .foregroundStyle(.white.opacity(0.55))
-                                        }
-                                        Spacer()
-                                        Text(pack.displayPrice)
-                                            .font(.title3.bold())
-                                            .foregroundStyle(premiumGold)
-                                    }
-                                    .padding(16)
-                                    .background(premiumCard)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
+                    TokenBuyBar(style: .premium)
 
                     Button {
                         store.showOfferCode = true
@@ -200,35 +156,4 @@ struct PaywallView: View {
         .disabled(store.isLoading)
     }
 
-    private func tokenFallbackRow(tokens: Int, price: String, productID: String) -> some View {
-        Button {
-            store.lastError = "Add \(productID) in App Store Connect to sell this \(tokens.formatted())-token pack."
-        } label: {
-            HStack {
-                Text("\(tokens.formatted()) AI tokens").font(.headline)
-                Spacer()
-                Text(price).font(.title3.bold()).foregroundStyle(premiumGold)
-            }
-            .padding(16)
-            .background(premiumCard)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func creditServer(_ amount: Int) async {
-        guard amount > 0 else { return }
-        var url = appState.apiBaseURL
-        url.append(path: "ai/credit")
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "userKey": appState.userId ?? appState.handle,
-            "tokens": amount,
-        ])
-        _ = try? await URLSession.shared.data(for: req)
-        await appState.aiQuota.refresh(baseURL: appState.apiBaseURL, userKey: appState.userId ?? appState.handle)
-        appState.aiQuota.syncPurchased(store.purchasedTokens)
-    }
 }

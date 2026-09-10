@@ -47,7 +47,7 @@ app.get("/ai/usage", (req, res) => {
     usage: aiUsagePayload(userKey),
     dailyRequestCap: config.aiDailyRequestCap,
     dailyTokenCap: config.aiDailyTokenCap,
-    note: "Wingman, companion, and rizz trainer share this daily cap. Not unlimited.",
+    note: "Wingman, companion, rizz trainer, and mog-off rizz share this cap. Not unlimited. Buy Tokens.Mogme for 100 tokens.",
   });
 });
 

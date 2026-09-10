@@ -55,7 +55,7 @@ final class AIQuota: ObservableObject {
 
     var tokenLine: String {
         let total = snapshot.tokensRemaining + purchasedTokens
-        return "\(total.formatted()) tokens left · buy more in Lifetime"
+        return "\(total.formatted()) tokens left · 100 for \(StoreKitManager.tokenListedPrice)"
     }
 
     var walletDetail: String {

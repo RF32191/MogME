@@ -33,14 +33,7 @@ struct RootView: View {
                 .accessibilityIdentifier("floatingCrown")
         }
         .sheet(isPresented: $store.showPaywall) {
-            NavigationStack {
-                PaywallView()
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Close") { store.showPaywall = false }
-                        }
-                    }
-            }
+            PaywallView()
         }
     }
 }
@@ -59,7 +52,7 @@ struct PlayHubView: View {
                             hubRow("Companion", "On-device persona chat. Each reply spends tokens from the shared daily wallet.", "heart.fill")
                         }
                         NavigationLink { MogOffView() } label: {
-                            hubRow("Mog-Off", "Queue for face, cognition, reflex, punch, and rizz rounds.", "trophy.fill")
+                            hubRow("Mog-Off", "Queue for face, cognition, reflex, punch, and rizz. Rizz turns spend tokens.", "trophy.fill")
                         }
                     }
                     .padding(20)

@@ -75,21 +75,10 @@ struct HomeView: View {
                 Text(appState.aiQuota.walletDetail)
                     .font(.footnote)
                     .foregroundStyle(MogTheme.muted)
-                Text("Wingman, Companion, and Rizz spend tokens. Lifetime is $4.99 and does not make AI unlimited — buy tokens on the membership screen.")
+                Text("Rizz, Companion, Wingman, and Mog-Off spend tokens. Lifetime is \(store.displayPrice) and does not make AI unlimited. The only pack is 100 tokens for \(store.tokenPrice).")
                     .font(.caption)
                     .foregroundStyle(MogTheme.muted)
-                Button {
-                    store.showPaywall = true
-                } label: {
-                    Text("Buy AI tokens")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(GoldButtonStyle())
-                if appState.aiQuota.isExhausted {
-                    Text("Token pool is empty for today.")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.red)
-                }
+                TokenBuyBar(compact: true)
             }
         }
     }

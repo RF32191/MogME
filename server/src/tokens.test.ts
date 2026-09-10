@@ -23,7 +23,7 @@ test("purchased AI tokens extend the wallet past the daily cap", async () => {
   const { creditPurchasedTokens, purchasedTokenBalance } = await import("./tokens.js");
   const key = `buy-${Date.now()}`;
   assert.equal(purchasedTokenBalance(key), 0);
-  assert.equal(creditPurchasedTokens(key, 2_000), 2_000);
+  assert.equal(creditPurchasedTokens(key, 100), 100);
   const budget = new DailyTokenBudget({ dailyRequestCap: 20, dailyTokenCap: 50 });
   budget.record(key, 50, 0);
   assert.equal(budget.canSpend(key, 100).ok, true);
@@ -97,4 +97,9 @@ test("shared AI budget is not unlimited across features", async () => {
   const rizz = await practiceTurn(session, "hey there, how is your week going?", key);
   assert.equal(rizz.ok, false);
   assert.equal(rizz.reason, "daily-request-cap");
+
+  const { rizzTurn, initRizzRound } = await import("./rounds/rizz.js");
+  const mogOff = await rizzTurn(initRizzRound(), key, "hey there, how is your week going?");
+  assert.equal(mogOff.ok, false);
+  assert.equal(mogOff.reason, "daily-request-cap");
 });

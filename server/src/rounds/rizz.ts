@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { config } from "../config.js";
 import { randomPersona } from "../data/personas.js";
 import { moderateText } from "../moderation.js";
+import { aiBudget, estimateTokensFromText } from "../tokens.js";
 import type { Match, RizzPlayerState, RizzRoundState, RoundResult } from "../types.js";
 
 let openai: OpenAI | null = null;
@@ -64,6 +65,10 @@ export async function rizzTurn(
   const message = rawMessage.trim().slice(0, 500);
   if (!message) return { ok: false, reason: "empty" };
 
+  const projected = estimateTokensFromText(message) + 220;
+  const gate = aiBudget.canSpend(userId, projected);
+  if (!gate.ok) return { ok: false, reason: gate.reason };
+
   const moderation = await moderateText(message);
   if (!moderation.approved) {
     // Disrespectful/crude content also tanks affection in-fiction.
@@ -74,6 +79,7 @@ export async function rizzTurn(
   ps.busy = true;
   try {
     const { reply, delta } = await generateReply(state, ps, message);
+    aiBudget.record(userId, projected, estimateTokensFromText(reply));
     ps.turns += 1;
     ps.affection = Math.max(0, Math.min(100, ps.affection + delta));
     ps.transcript.push({ role: "user", content: message, affectionAfter: ps.affection, at: Date.now() });

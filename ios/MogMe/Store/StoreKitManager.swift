@@ -23,15 +23,21 @@ final class StoreKitManager: ObservableObject {
         "MogMe.Annual",
         "MogMe.Yearly",
     ]
+    static let tokenProductID = "Tokens.Mogme"
+    static let tokenAppleID = "6810475672"
+    static let tokenReferenceName = "54"
+    static let tokensPerPack = 100
+    static let tokenListedPrice = "$0.99"
     static let tokenProductIDs: [String: Int] = [
-        "MogMe.Tokens.2000": 2_000,
-        "MogMe.Tokens.10000": 10_000,
-        "MogMe.Tokens.40000": 40_000,
+        "Tokens.Mogme": 100,
+        "tokens.mogme": 100,
+        "Tokens.MogMe": 100,
     ]
 
     @Published private(set) var product: Product?
     @Published private(set) var monthlyProduct: Product?
     @Published private(set) var annualProduct: Product?
+    @Published private(set) var tokenProduct: Product?
     @Published private(set) var tokenProducts: [Product] = []
     @Published private(set) var products: [Product] = []
     @Published private(set) var isUnlocked = false
@@ -52,6 +58,11 @@ final class StoreKitManager: ObservableObject {
 
     var monthlyPrice: String { monthlyProduct?.displayPrice ?? "$5.99" }
     var annualPrice: String { annualProduct?.displayPrice ?? "$29.99" }
+    var tokenPrice: String {
+        let live = tokenProduct?.displayPrice ?? ""
+        if live.contains("0.99") || live.contains("0,99") { return live }
+        return Self.tokenListedPrice
+    }
 
     deinit {
         updatesTask?.cancel()
@@ -71,9 +82,9 @@ final class StoreKitManager: ObservableObject {
                 ?? loaded.first { Self.isLifetime($0.id) }
             monthlyProduct = loaded.first { Self.isMonthly($0.id) }
             annualProduct = loaded.first { Self.isAnnual($0.id) }
-            tokenProducts = loaded
-                .filter { Self.tokenProductIDs[$0.id] != nil }
-                .sorted { (Self.tokenProductIDs[$0.id] ?? 0) < (Self.tokenProductIDs[$1.id] ?? 0) }
+            tokenProducts = loaded.filter { Self.tokenProductIDs[$0.id] != nil }
+            tokenProduct = loaded.first { $0.id == Self.tokenProductID }
+                ?? tokenProducts.first
             await finishUnfinished()
             await refreshEntitlements()
             listenForUpdates()
@@ -117,10 +128,13 @@ final class StoreKitManager: ObservableObject {
         }
     }
 
-    func purchaseTokens(_ pack: Product) async {
-        let amount = Self.tokenProductIDs[pack.id] ?? 0
-        await buy(pack) { transaction in
-            if amount > 0 { self.creditTokens(amount) }
+    func purchaseTokens(_ pack: Product? = nil) async {
+        let item = pack ?? tokenProduct
+        let amount = item.flatMap { Self.tokenProductIDs[$0.id] } ?? Self.tokensPerPack
+        await buy(item) { transaction in
+            if Self.tokenProductIDs[transaction.productID] != nil || transaction.productID == Self.tokenProductID {
+                self.creditTokens(amount)
+            }
             await transaction.finish()
         }
     }
@@ -226,6 +240,9 @@ final class StoreKitManager: ObservableObject {
             guard let transaction = try? check(update) else { continue }
             if Self.isPremium(transaction.productID), transaction.revocationDate == nil {
                 grantUnlock()
+            }
+            if let extra = Self.tokenProductIDs[transaction.productID] {
+                creditTokens(extra)
             }
             await transaction.finish()
         }

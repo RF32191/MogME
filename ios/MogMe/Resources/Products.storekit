@@ -22,46 +22,16 @@
     {
       "displayPrice" : "0.99",
       "familyShareable" : false,
-      "internalID" : "6758647501",
+      "internalID" : "6810475672",
       "localizations" : [
         {
-          "description" : "2,000 AI tokens for Wingman, Companion, and Rizz.",
-          "displayName" : "AI Tokens 2,000",
+          "description" : "100 AI tokens for Rizz, Companion, Wingman, and Mog-Off.",
+          "displayName" : "100 AI Tokens",
           "locale" : "en_US"
         }
       ],
-      "productID" : "MogMe.Tokens.2000",
-      "referenceName" : "tokens-2k",
-      "type" : "Consumable"
-    },
-    {
-      "displayPrice" : "3.99",
-      "familyShareable" : false,
-      "internalID" : "6758647502",
-      "localizations" : [
-        {
-          "description" : "10,000 AI tokens for Wingman, Companion, and Rizz.",
-          "displayName" : "AI Tokens 10,000",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "MogMe.Tokens.10000",
-      "referenceName" : "tokens-10k",
-      "type" : "Consumable"
-    },
-    {
-      "displayPrice" : "9.99",
-      "familyShareable" : false,
-      "internalID" : "6758647503",
-      "localizations" : [
-        {
-          "description" : "40,000 AI tokens for Wingman, Companion, and Rizz.",
-          "displayName" : "AI Tokens 40,000",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "MogMe.Tokens.40000",
-      "referenceName" : "tokens-40k",
+      "productID" : "Tokens.Mogme",
+      "referenceName" : "54",
       "type" : "Consumable"
     }
   ],

@@ -116,7 +116,7 @@ export class DailyTokenBudget {
   }
 }
 
-/** One shared daily pool for wingman, companion, and rizz trainer. */
+/** One shared pool for wingman, companion, rizz trainer, and mog-off rizz. */
 export const aiBudget = new DailyTokenBudget({
   dailyRequestCap: config.aiDailyRequestCap,
   dailyTokenCap: config.aiDailyTokenCap,

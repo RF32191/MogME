@@ -12,6 +12,7 @@ struct MogOffView: View {
                 MogCard {
                     Text(status)
                 }
+                TokenBuyBar()
                 Button("Sign in & remember ID") { Task { await signIn() } }
                     .buttonStyle(GoldButtonStyle())
                 Text("WebSocket matchmaking lives at \(appState.apiBaseURL.absoluteString.replacingOccurrences(of: "https", with: "wss"))/ws")
