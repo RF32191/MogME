@@ -7,6 +7,9 @@ import StoreKit
 final class StoreKitManager: ObservableObject {
     static let lifetimeProductID = "MogMe.Lifetime.60"
     static let listedPrice = "$4.99"
+    static let appleProductAppleID = "6758647492"
+    static let referenceName = "47"
+    static let storeDisplayName = "One-Time-Purchase"
     static let receiptUnlockKey = "mogme.premiumUnlocked.receipt"
     static let premiumProductIDs: Set<String> = [
         "MogMe.Lifetime.60",
@@ -20,6 +23,7 @@ final class StoreKitManager: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var lastError: String?
     @Published var showPaywall = false
+    @Published var showOfferCode = false
 
     private var updatesTask: Task<Void, Never>?
 
@@ -76,6 +80,14 @@ final class StoreKitManager: ObservableObject {
             }
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    func refreshAfterOffer() async {
+        await finishUnfinished()
+        await refreshEntitlements()
+        if isUnlocked {
+            lastError = nil
         }
     }
 

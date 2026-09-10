@@ -6,7 +6,7 @@ Open `ios/MogMe.xcodeproj` on a Mac with Xcode 16+.
 
 ## Lifetime price
 
-The paywall loads **MogMe.Lifetime.60** at **$4.99** (Apple ID `6758647492`). Purchase, Restore, Apple Pay, and unfinished StoreKit transactions all grant the same premium flag. The Xcode scheme points at `MogMe/Resources/Products.storekit` so the product exists in the Simulator environment.
+The paywall loads App Store Connect **MogMe.Lifetime.60** (Apple ID `6758647492`, reference `47`, display name **One-Time-Purchase**) at **$4.99**. Purchase, Restore, offer-code redemption (`LIFETIMEACCESS` / Lifetime Unlock), and unfinished StoreKit transactions all grant the same premium flag. The scheme StoreKit file is `ios/MogMe/Resources/Products.storekit`.
 
 ## Workouts
 

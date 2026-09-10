@@ -10,8 +10,8 @@
       "internalID" : "6758647492",
       "localizations" : [
         {
-          "description" : "One-time MogMe lifetime unlock. App Store Connect product MogMe.Lifetime.60.",
-          "displayName" : "MogMe Lifetime",
+          "description" : "Unlock all MogMe Premium features with one purchase.",
+          "displayName" : "One-Time-Purchase",
           "locale" : "en_US"
         }
       ],
