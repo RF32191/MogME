@@ -9,7 +9,7 @@ import { companionRouter } from "./routes/companion.js";
 import { trendsRouter } from "./routes/trends.js";
 import { wingmanRouter } from "./routes/wingman.js";
 import { foodRouter } from "./routes/food.js";
-import { aiBudget, aiUsagePayload } from "./tokens.js";
+import { aiBudget, aiUsagePayload, creditPurchasedTokens } from "./tokens.js";
 import { attachWebSocket } from "./ws.js";
 
 const app = express();
@@ -49,6 +49,17 @@ app.get("/ai/usage", (req, res) => {
     dailyTokenCap: config.aiDailyTokenCap,
     note: "Wingman, companion, and rizz trainer share this daily cap. Not unlimited.",
   });
+});
+
+app.post("/ai/credit", (req, res) => {
+  const userKey = String(req.body?.userKey ?? "anon").slice(0, 80);
+  const tokens = Number(req.body?.tokens ?? 0);
+  if (!Number.isFinite(tokens) || tokens <= 0 || tokens > 100_000) {
+    res.status(400).json({ error: "bad-tokens" });
+    return;
+  }
+  const purchased = creditPurchasedTokens(userKey, tokens);
+  res.json({ ok: true, purchased, usage: aiUsagePayload(userKey) });
 });
 
 const server = http.createServer(app);

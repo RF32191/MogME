@@ -23,6 +23,9 @@ struct RootView: View {
                 .tag(AppState.Tab.play)
         }
         .tint(MogTheme.gold)
+        .onChange(of: store.purchasedTokens) { _, value in
+            appState.aiQuota.syncPurchased(value)
+        }
         .overlay(alignment: .bottomTrailing) {
             CrownButton()
                 .padding(.trailing, 16)

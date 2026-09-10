@@ -19,6 +19,16 @@ test("daily budget blocks after the request cap", () => {
   if (!blocked.ok) assert.equal(blocked.reason, "daily-request-cap");
 });
 
+test("purchased AI tokens extend the wallet past the daily cap", async () => {
+  const { creditPurchasedTokens, purchasedTokenBalance } = await import("./tokens.js");
+  const key = `buy-${Date.now()}`;
+  assert.equal(purchasedTokenBalance(key), 0);
+  assert.equal(creditPurchasedTokens(key, 2_000), 2_000);
+  const budget = new DailyTokenBudget({ dailyRequestCap: 20, dailyTokenCap: 50 });
+  budget.record(key, 50, 0);
+  assert.equal(budget.canSpend(key, 100).ok, true);
+});
+
 test("token cap blocks even when request slots remain", () => {
   const budget = new DailyTokenBudget({ dailyRequestCap: 50, dailyTokenCap: 100 });
   budget.record("token-user", 80, 15);

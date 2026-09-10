@@ -42,6 +42,19 @@ function utcDayKey(now = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+const purchasedTokens = new Map<string, number>();
+
+export function creditPurchasedTokens(userKey: string, tokens: number): number {
+  const key = userKey.slice(0, 80) || "anon";
+  const next = Math.max(0, (purchasedTokens.get(key) ?? 0) + Math.max(0, Math.floor(tokens)));
+  purchasedTokens.set(key, next);
+  return next;
+}
+
+export function purchasedTokenBalance(userKey: string): number {
+  return purchasedTokens.get(userKey.slice(0, 80) || "anon") ?? 0;
+}
+
 export class DailyTokenBudget {
   private byUser = new Map<string, TokenUsage>();
 
@@ -66,19 +79,22 @@ export class DailyTokenBudget {
 
   remaining(userKey: string, now = new Date()): { requests: number; tokens: number } {
     const used = this.snapshot(userKey, now);
+    const extra = purchasedTokenBalance(userKey);
     return {
       requests: Math.max(0, this.limits.dailyRequestCap - used.requests),
-      tokens: Math.max(0, this.limits.dailyTokenCap - used.inputTokens - used.outputTokens),
+      tokens: Math.max(0, this.limits.dailyTokenCap - used.inputTokens - used.outputTokens) + extra,
     };
   }
 
   canSpend(userKey: string, projectedInput: number, now = new Date()): { ok: true } | { ok: false; reason: string } {
     const used = this.snapshot(userKey, now);
-    if (used.requests >= this.limits.dailyRequestCap) {
-      return { ok: false, reason: "daily-request-cap" };
-    }
-    if (used.inputTokens + used.outputTokens + projectedInput > this.limits.dailyTokenCap) {
+    const extra = purchasedTokenBalance(userKey);
+    const dailyLeft = Math.max(0, this.limits.dailyTokenCap - used.inputTokens - used.outputTokens);
+    if (dailyLeft + extra < projectedInput) {
       return { ok: false, reason: "daily-token-cap" };
+    }
+    if (used.requests >= this.limits.dailyRequestCap && extra < projectedInput) {
+      return { ok: false, reason: "daily-request-cap" };
     }
     return { ok: true };
   }
@@ -89,6 +105,12 @@ export class DailyTokenBudget {
     current.inputTokens += inputTokens;
     current.outputTokens += outputTokens;
     current.estimatedCostUsd += estimateCostUsd(inputTokens, outputTokens);
+    const extra = purchasedTokenBalance(userKey);
+    const cost = inputTokens + outputTokens;
+    const fromPurchased = Math.min(extra, cost);
+    if (fromPurchased > 0) {
+      purchasedTokens.set(userKey, extra - fromPurchased);
+    }
     this.byUser.set(userKey, current);
     return { ...current };
   }
@@ -105,6 +127,7 @@ export interface AIUsagePayload {
   requestsRemaining: number;
   tokensToday: number;
   tokensRemaining: number;
+  purchasedTokens?: number;
   dailyTokenCap: number;
   dailyRequestCap: number;
   estimatedCostUsdToday: number;
@@ -122,6 +145,7 @@ export function aiUsagePayload(
     requestsRemaining: remaining.requests,
     tokensToday: used.inputTokens + used.outputTokens,
     tokensRemaining: remaining.tokens,
+    purchasedTokens: purchasedTokenBalance(userKey),
     dailyTokenCap: config.aiDailyTokenCap,
     dailyRequestCap: config.aiDailyRequestCap,
     estimatedCostUsdToday: Number(used.estimatedCostUsd.toFixed(5)),

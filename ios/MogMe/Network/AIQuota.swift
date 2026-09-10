@@ -49,19 +49,29 @@ final class AIQuota: ObservableObject {
         tokensRemaining: 18_000
     )
     @Published var lastError: String?
+    @Published private(set) var purchasedTokens = 0
 
     var line: String { tokenLine }
 
     var tokenLine: String {
-        "\(snapshot.tokensRemaining.formatted()) tokens left · not unlimited"
+        let total = snapshot.tokensRemaining + purchasedTokens
+        return "\(total.formatted()) tokens left · buy more in Lifetime"
     }
 
     var walletDetail: String {
-        "Used \(snapshot.tokensToday.formatted()) of \(snapshot.dailyTokenCap.formatted()) tokens today · \(snapshot.requestsRemaining) turns left"
+        "Daily \(snapshot.tokensRemaining.formatted()) + purchased \(purchasedTokens.formatted()) · used \(snapshot.tokensToday.formatted()) today"
     }
 
     var isExhausted: Bool {
-        snapshot.tokensRemaining <= 0 || snapshot.requestsRemaining <= 0
+        snapshot.tokensRemaining + purchasedTokens <= 0
+    }
+
+    func addPurchased(_ amount: Int) {
+        purchasedTokens += max(0, amount)
+    }
+
+    func syncPurchased(_ amount: Int) {
+        purchasedTokens = max(purchasedTokens, amount)
     }
 
     func apply(_ usage: AIUsageSnapshot) {
@@ -84,6 +94,7 @@ final class AIQuota: ObservableObject {
             dailyTokenCap: int(usage["dailyTokenCap"] ?? dict["dailyTokenCap"], fallback: 18_000),
             dailyRequestCap: int(usage["dailyRequestCap"] ?? dict["dailyRequestCap"], fallback: 15)
         ))
+        syncPurchased(int(usage["purchasedTokens"]))
     }
 
     func refresh(baseURL: URL, userKey: String) async {
