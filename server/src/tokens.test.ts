@@ -26,7 +26,8 @@ test("purchased AI tokens extend the wallet past the daily cap", async () => {
   assert.equal(creditPurchasedTokens(key, 100), 100);
   const budget = new DailyTokenBudget({ dailyRequestCap: 20, dailyTokenCap: 50 });
   budget.record(key, 50, 0);
-  assert.equal(budget.canSpend(key, 100).ok, true);
+  assert.equal(purchasedTokenBalance(key), 50);
+  assert.equal(budget.canSpend(key, 40).ok, true);
 });
 
 test("token cap blocks even when request slots remain", () => {
