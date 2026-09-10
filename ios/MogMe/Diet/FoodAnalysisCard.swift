@@ -4,11 +4,18 @@ struct FoodAnalysisCard: View {
     let hit: FoodHit
     var photoDescription: String = ""
     var photo: UIImage?
+    var googleImages: [GoogleImageMatch] = []
+    var identifiedByGoogle = false
 
     var body: some View {
         MogCard {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Item analysis").font(.headline)
+                if identifiedByGoogle {
+                    Text("Identified with Google Images")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(MogTheme.gold)
+                }
                 if let photo {
                     Image(uiImage: photo)
                         .resizable()
@@ -33,6 +40,31 @@ struct FoodAnalysisCard: View {
                 }
                 if !hit.headline.isEmpty {
                     Text(hit.headline).font(.footnote).foregroundStyle(MogTheme.muted)
+                }
+                if !googleImages.isEmpty {
+                    Text("Similar Google Images").font(.caption.weight(.semibold)).foregroundStyle(MogTheme.muted)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(googleImages) { match in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    AsyncImage(url: match.thumbURL ?? match.imageURL) { phase in
+                                        switch phase {
+                                        case .success(let img):
+                                            img.resizable().scaledToFill()
+                                        default:
+                                            Color.white.opacity(0.06)
+                                        }
+                                    }
+                                    .frame(width: 84, height: 84)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    Text(match.title)
+                                        .font(.caption2)
+                                        .lineLimit(2)
+                                        .frame(width: 84, alignment: .leading)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {

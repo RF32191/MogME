@@ -55,6 +55,13 @@ export const config = {
 
   // Uploaded distorted-face image retention (ms). Short by default to limit liability.
   imageRetentionMs: num("IMAGE_RETENTION_MS", 5 * 60_000),
+
+  // Google Images food ID: Cloud Vision web detection (reverse image) +
+  // Programmable Search image results. Calories still come from USDA / OFF.
+  googleVisionApiKey: process.env.GOOGLE_VISION_API_KEY ?? process.env.GOOGLE_API_KEY ?? "",
+  googleCseApiKey: process.env.GOOGLE_CSE_API_KEY ?? process.env.GOOGLE_API_KEY ?? "",
+  googleCseCx: process.env.GOOGLE_CSE_CX ?? "",
+  foodIdentifyDailyCap: num("FOOD_IDENTIFY_DAILY_CAP", 40),
 } as const;
 
 export type RoundName = (typeof config.rounds)[number];

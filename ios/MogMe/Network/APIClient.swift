@@ -78,6 +78,10 @@ enum ImageCompressor {
         return image.jpegData(compressionQuality: 0.32)
     }
 
+    static func jpegForIdentify(_ image: UIImage) -> Data? {
+        jpegForWingman(image)
+    }
+
     static func jpegForMeal(_ image: UIImage) -> Data? {
         let maxEdge: CGFloat = 1600
         let size = image.size

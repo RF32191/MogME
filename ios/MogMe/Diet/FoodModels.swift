@@ -61,6 +61,22 @@ struct MealPhotoRead: Sendable, Hashable {
     var suggestedName: String
     var description: String
     var ocr: String
+    var labels: [String] = []
+}
+
+struct GoogleImageMatch: Hashable, Sendable, Identifiable {
+    var id: String { imageURL?.absoluteString ?? title }
+    var title: String
+    var imageURL: URL?
+    var thumbURL: URL?
+}
+
+struct FoodIdentifyResult: Sendable {
+    var name: String
+    var description: String
+    var usedGoogle: Bool
+    var googleImages: [GoogleImageMatch]
+    var foods: [FoodHit]
 }
 
 enum FoodLookupError: LocalizedError {

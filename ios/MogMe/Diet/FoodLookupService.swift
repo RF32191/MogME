@@ -57,7 +57,60 @@ actor FoodLookupService {
         async let labels = classifyFood(image)
         let text = await ocr
         let tags = await labels
-        return Self.composeDescription(ocr: text, labels: tags)
+        var read = Self.composeDescription(ocr: text, labels: tags)
+        read.labels = tags
+        return read
+    }
+
+    func identifyWithGoogle(image: UIImage, hints: MealPhotoRead, userKey: String) async -> FoodIdentifyResult? {
+        guard let apiBase, let data = ImageCompressor.jpegForIdentify(image) else { return nil }
+        var url = apiBase
+        url.append(path: "food/identify")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 30
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = [
+            "userKey": userKey,
+            "imageDataUrl": "data:image/jpeg;base64,\(data.base64EncodedString())",
+            "ocrText": hints.ocr,
+            "labels": hints.labels,
+        ]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        guard let (payload, response) = try? await session.data(for: req),
+              let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              let decoded = try? JSONDecoder().decode(IdentifyJSON.self, from: payload)
+        else { return nil }
+        let foods = (decoded.foods ?? []).map {
+            FoodHit(
+                id: $0.id,
+                name: $0.name,
+                brand: $0.brand,
+                calories: $0.calories,
+                protein: $0.protein,
+                carbs: $0.carbs,
+                fat: $0.fat,
+                fiber: $0.fiber,
+                sugars: $0.sugars,
+                sodium: $0.sodium,
+                serving: $0.serving,
+                source: $0.source,
+                imageURL: nil,
+                analysis: $0.analysis
+            )
+        }
+        return FoodIdentifyResult(
+            name: decoded.name,
+            description: decoded.description,
+            usedGoogle: decoded.usedGoogle,
+            googleImages: (decoded.googleImages ?? []).compactMap { row in
+                let remote = URL(string: row.thumbUrl ?? row.imageUrl ?? "")
+                guard remote != nil || !row.title.isEmpty else { return nil }
+                return GoogleImageMatch(title: row.title, imageURL: URL(string: row.imageUrl ?? ""), thumbURL: remote)
+            },
+            foods: foods
+        )
     }
 
     static func composeDescription(ocr: String, labels: [String]) -> MealPhotoRead {
@@ -368,6 +421,20 @@ private struct OFFNutriments: Decodable {
         case sugars100g = "sugars_100g"
         case sodium100g = "sodium_100g"
     }
+}
+
+private struct IdentifyJSON: Decodable {
+    let name: String
+    let description: String
+    let usedGoogle: Bool
+    let googleImages: [GoogleImageJSON]?
+    let foods: [RailwayFood]?
+}
+
+private struct GoogleImageJSON: Decodable {
+    let title: String
+    let imageUrl: String?
+    let thumbUrl: String?
 }
 
 private struct RailwayFoods: Decodable {

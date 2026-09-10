@@ -1,3 +1,17 @@
+import { DailyTokenBudget } from "./tokens.js";
+import { config } from "./config.js";
+import {
+  googleImageSearch,
+  googleVisionWebDetect,
+  pickFoodName,
+  type GoogleImageMatch,
+} from "./googleImages.js";
+
+export const foodIdentifyBudget = new DailyTokenBudget({
+  dailyRequestCap: config.foodIdentifyDailyCap,
+  dailyTokenCap: 200_000,
+});
+
 export interface FoodRecord {
   id: string;
   name: string;
@@ -51,6 +65,87 @@ export async function searchFoods(query: string): Promise<FoodRecord[]> {
     if (out.length >= 20) break;
   }
   return out;
+}
+
+export interface FoodIdentifyResult {
+  ok: boolean;
+  reason?: string;
+  name: string;
+  description: string;
+  source: string;
+  usedGoogle: boolean;
+  googleImages: GoogleImageMatch[];
+  foods: FoodRecord[];
+}
+
+export async function identifyFoodFromImage(input: {
+  userKey?: string;
+  imageDataUrl?: string;
+  ocrText?: string;
+  labels?: string[];
+}): Promise<FoodIdentifyResult> {
+  const userKey = (input.userKey ?? "anon").slice(0, 80);
+  const gate = foodIdentifyBudget.canSpend(userKey, 200);
+  if (!gate.ok) {
+    return {
+      ok: false,
+      reason: gate.reason,
+      name: "",
+      description: "Daily food photo identification limit reached.",
+      source: "cap",
+      usedGoogle: false,
+      googleImages: [],
+      foods: [],
+    };
+  }
+
+  let vision = { bestGuess: "", webEntities: [] as string[], similarImages: [] as GoogleImageMatch[] };
+  if (input.imageDataUrl && config.googleVisionApiKey) {
+    try {
+      vision = await googleVisionWebDetect(input.imageDataUrl, config.googleVisionApiKey);
+    } catch {
+      vision = { bestGuess: "", webEntities: [], similarImages: [] };
+    }
+  }
+
+  let draft = pickFoodName({
+    bestGuess: vision.bestGuess,
+    webEntities: vision.webEntities,
+    ocr: input.ocrText,
+    labels: input.labels,
+  });
+
+  let googleImages = vision.similarImages;
+  if (draft.name && config.googleCseApiKey && config.googleCseCx) {
+    try {
+      const searched = await googleImageSearch(`${draft.name} food`, config.googleCseApiKey, config.googleCseCx);
+      if (searched.length) {
+        googleImages = searched;
+        const fromTitles = pickFoodName({
+          bestGuess: draft.source === "google-vision" ? draft.name : "",
+          imageTitles: searched.map((item) => item.title),
+          webEntities: vision.webEntities,
+          ocr: input.ocrText,
+          labels: input.labels,
+        });
+        if (fromTitles.name) draft = fromTitles;
+      }
+    } catch {
+      // Keep Vision / local name if Google Images search is unavailable.
+    }
+  }
+
+  foodIdentifyBudget.record(userKey, 200, 20);
+  const foods = draft.name ? await searchFoods(draft.name) : [];
+  return {
+    ok: Boolean(draft.name),
+    name: draft.name,
+    description: draft.description,
+    source: draft.source,
+    usedGoogle: draft.source === "google-vision" || draft.source === "google-images" || googleImages.length > 0,
+    googleImages,
+    foods,
+  };
 }
 
 async function openFoodFacts(query: string): Promise<Omit<FoodRecord, "analysis">[]> {

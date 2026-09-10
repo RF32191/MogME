@@ -24,6 +24,7 @@ app.get("/health", (_req, res) => {
     wingmanModel: config.openaiApiKey ? config.wingmanModel : "heuristic (no OPENAI_API_KEY)",
     aiDailyRequestCap: config.aiDailyRequestCap,
     aiDailyTokenCap: config.aiDailyTokenCap,
+    googleFoodId: Boolean(config.googleVisionApiKey || (config.googleCseApiKey && config.googleCseCx)),
     moderation: config.moderationEnabled ? config.moderationProvider : "disabled",
   });
 });

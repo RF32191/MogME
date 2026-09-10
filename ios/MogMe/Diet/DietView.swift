@@ -31,7 +31,7 @@ struct DietView: View {
                         MogCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Look up calories").font(.headline)
-                                Text("Choose a live or library photo. You get an item description plus full calorie analytics from Open Food Facts / USDA — not an AI calorie guess.")
+                                Text("Live camera and camera roll both send the photo to Google Images to name the food. Calories then come from Open Food Facts / USDA — not an AI calorie guess.")
                                     .font(.footnote)
                                     .foregroundStyle(MogTheme.muted)
                                 HStack {
@@ -63,7 +63,9 @@ struct DietView: View {
                             FoodAnalysisCard(
                                 hit: top,
                                 photoDescription: model.description,
-                                photo: model.captured
+                                photo: model.captured,
+                                googleImages: model.googleImages,
+                                identifiedByGoogle: model.identifiedByGoogle
                             )
                         }
 
@@ -136,7 +138,7 @@ struct DietView: View {
                 MealCameraView(
                     onCapture: { image in
                         cameraOpen = false
-                        Task { await model.acceptPhoto(image) }
+                        Task { await model.acceptPhoto(image, userKey: appState.userId ?? appState.handle) }
                     },
                     onCancel: { cameraOpen = false }
                 )
@@ -145,7 +147,7 @@ struct DietView: View {
                 Task {
                     guard let item, let data = try? await item.loadTransferable(type: Data.self),
                           let image = UIImage(data: data) else { return }
-                    await model.acceptPhoto(image)
+                    await model.acceptPhoto(image, userKey: appState.userId ?? appState.handle)
                 }
             }
             .onAppear { model.setAPI(appState.apiBaseURL) }
@@ -181,7 +183,9 @@ struct DietView: View {
                     .padding()
                 }
             }
-            Text("Item description — edit if it's wrong")
+            Text(model.identifiedByGoogle
+                 ? "Google Images description — edit if it's wrong"
+                 : "Item description — edit if it's wrong")
                 .font(.caption)
                 .foregroundStyle(MogTheme.muted)
             TextField("Describe the food", text: $model.description, axis: .vertical)
@@ -232,6 +236,8 @@ final class DietSearchModel: ObservableObject {
     @Published var captured: UIImage?
     @Published var description = ""
     @Published var loadingMessage = "Reading your meal…"
+    @Published var googleImages: [GoogleImageMatch] = []
+    @Published var identifiedByGoogle = false
     private let lookup = FoodLookupService()
 
     func setAPI(_ url: URL) {
@@ -243,29 +249,49 @@ final class DietSearchModel: ObservableObject {
         description = ""
         hits = []
         error = nil
+        googleImages = []
+        identifiedByGoogle = false
         loadingMessage = "Reading your meal…"
     }
 
-    func acceptPhoto(_ image: UIImage) async {
+    func acceptPhoto(_ image: UIImage, userKey: String) async {
         captured = image
         hits = []
         error = nil
         description = ""
+        googleImages = []
+        identifiedByGoogle = false
         busy = true
-        loadingMessage = "Reading the live photo…"
+        loadingMessage = "Identifying food with Google Images…"
         defer { busy = false }
         let read = await lookup.readMealPhoto(image)
-        description = read.description.isEmpty ? read.suggestedName : read.description
-        query = read.suggestedName
-        loadingMessage = "Looking up calories…"
-        do {
-            let terms = description.isEmpty ? read.suggestedName : description
-            hits = try await lookup.searchFromDescription(terms)
+        if let identified = await lookup.identifyWithGoogle(image: image, hints: read, userKey: userKey),
+           !identified.name.isEmpty {
+            description = identified.description
+            query = identified.name
+            googleImages = identified.googleImages
+            identifiedByGoogle = identified.usedGoogle
+            hits = identified.foods
             if hits.isEmpty {
-                error = "No calorie match yet. Correct the description and tap Use this description."
+                loadingMessage = "Looking up calories…"
+                hits = (try? await lookup.search(query: identified.name)) ?? []
             }
-        } catch {
-            self.error = error.localizedDescription
+            if hits.isEmpty {
+                error = "Google named this “\(identified.name)” but no calorie match yet. Edit the description and search."
+            }
+        } else {
+            description = read.description.isEmpty ? read.suggestedName : read.description
+            query = read.suggestedName
+            loadingMessage = "Looking up calories…"
+            do {
+                let terms = description.isEmpty ? read.suggestedName : description
+                hits = try await lookup.searchFromDescription(terms)
+                if hits.isEmpty {
+                    error = "No calorie match yet. Correct the description and tap Use this description."
+                }
+            } catch {
+                self.error = error.localizedDescription
+            }
         }
         loadingMessage = "Reading your meal…"
     }
