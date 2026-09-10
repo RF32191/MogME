@@ -62,23 +62,24 @@ struct HomeView: View {
 
     private var tokenWallet: some View {
         MogCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("AI token wallet").font(.headline)
-                Text("\(appState.aiQuota.snapshot.tokensRemaining.formatted()) tokens left")
-                    .font(.title2.bold())
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Tokens").font(.headline)
+                    Spacer()
+                    Button("Open") { store.showTokens = true }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(MogTheme.gold)
+                }
+                Text("\(appState.aiQuota.walletBalance.formatted())")
+                    .font(.system(size: 44, weight: .bold))
                     .foregroundStyle(MogTheme.gold)
-                ProgressView(
-                    value: Double(max(0, appState.aiQuota.snapshot.dailyTokenCap - appState.aiQuota.snapshot.tokensRemaining)),
-                    total: Double(max(1, appState.aiQuota.snapshot.dailyTokenCap))
-                )
-                .tint(MogTheme.gold)
-                Text(appState.aiQuota.walletDetail)
+                Text("1 token = 1 game or AI message")
+                    .font(.subheadline)
+                    .foregroundStyle(MogTheme.muted)
+                Text("You get \(AIQuota.dailyFreeTokens) free every day.")
                     .font(.footnote)
                     .foregroundStyle(MogTheme.muted)
-                Text("Rizz, Companion, Wingman, and Mog-Off spend tokens. Lifetime is \(store.displayPrice) and does not make AI unlimited. The only pack is 100 tokens for \(store.tokenPrice).")
-                    .font(.caption)
-                    .foregroundStyle(MogTheme.muted)
-                TokenBuyBar(compact: true)
+                TokenPackRow()
             }
         }
     }

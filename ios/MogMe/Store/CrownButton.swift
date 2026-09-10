@@ -11,7 +11,7 @@ struct CrownButton: View {
             VStack(spacing: 2) {
                 Image(systemName: "crown.fill")
                     .font(.title2.weight(.bold))
-                Text(store.displayPrice)
+                Text(StoreKitManager.listedPrice)
                     .font(.caption2.weight(.heavy))
             }
             .foregroundStyle(Color.black)
@@ -22,8 +22,8 @@ struct CrownButton: View {
             .shadow(color: MogTheme.gold.opacity(0.45), radius: 8, y: 2)
             .accessibilityLabel(
                 store.isUnlocked
-                    ? "Membership: lifetime \(store.displayPrice) is active"
-                    : "Membership: lifetime \(store.displayPrice)"
+                    ? "Membership: lifetime \(StoreKitManager.listedPrice) is active"
+                    : "Membership: lifetime \(StoreKitManager.listedPrice)"
             )
         }
         .buttonStyle(.plain)
@@ -54,12 +54,12 @@ struct MembershipCrownCard: View {
                             Text(store.isUnlocked ? "Lifetime" : "Not subscribed")
                                 .font(.title3.bold())
                                 .foregroundStyle(.white)
-                            Text("Lifetime · \(store.displayPrice) · 100 tokens \(store.tokenPrice)")
+                            Text("Lifetime · \(StoreKitManager.listedPrice) · 100 tokens \(StoreKitManager.tokenListedPrice)")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(MogTheme.gold)
                             Text(store.isUnlocked
-                                 ? "Tap the crown for membership. Tokens are \(store.tokenPrice) for 100."
-                                 : "Tap the crown for plans. Tokens are \(store.tokenPrice) for 100.")
+                                 ? "Tap the crown for membership. Tokens are \(StoreKitManager.tokenListedPrice) for 100."
+                                 : "Tap the crown for \(StoreKitManager.listedPrice) lifetime and 100 tokens.")
                                 .font(.caption)
                                 .foregroundStyle(MogTheme.muted)
                         }
@@ -73,7 +73,15 @@ struct MembershipCrownCard: View {
             .accessibilityIdentifier("homeMembershipCrown")
 
             MogCard {
-                TokenBuyBar()
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Token packs", systemImage: "bag.fill")
+                        .font(.headline)
+                        .foregroundStyle(MogTheme.gold)
+                    Text("1 token = 1 game or AI message. \(AIQuota.dailyFreeTokens) free every day.")
+                        .font(.caption)
+                        .foregroundStyle(MogTheme.muted)
+                    TokenPackRow()
+                }
             }
         }
     }

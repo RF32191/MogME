@@ -7,6 +7,7 @@ private let premiumGold = Color(red: 0.97, green: 0.85, blue: 0.22)
 
 struct PaywallView: View {
     @EnvironmentObject private var store: StoreKitManager
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         ZStack {
@@ -42,7 +43,7 @@ struct PaywallView: View {
                         planRow(
                             title: "MogME Lifetime",
                             subtitle: "Pay once, own forever",
-                            price: store.displayPrice,
+                            price: StoreKitManager.listedPrice,
                             badge: "BEST VALUE",
                             selected: true
                         ) {
@@ -68,7 +69,7 @@ struct PaywallView: View {
                         }
                     }
 
-                    TokenBuyBar(style: .premium)
+                    tokensSection
 
                     Button {
                         store.showOfferCode = true
@@ -117,6 +118,23 @@ struct PaywallView: View {
         .task { await store.load() }
     }
 
+    private var tokensSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Token packs", systemImage: "bag.fill")
+                .font(.headline)
+                .foregroundStyle(premiumGold)
+            Text("\(appState.aiQuota.walletBalance.formatted()) tokens · 1 token = 1 game or AI message. \(AIQuota.dailyFreeTokens) free every day.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.7))
+            TokenPackRow()
+            Text("Only option. No watch-an-ad. No Unlimited.")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.45))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("crownTokenPacks")
+    }
+
     private func planRow(
         title: String,
         subtitle: String,
@@ -154,6 +172,7 @@ struct PaywallView: View {
         }
         .buttonStyle(.plain)
         .disabled(store.isLoading)
+        .accessibilityIdentifier(title.contains("Lifetime") ? "lifetimePriceRow" : title)
+        .accessibilityValue(price)
     }
-
 }

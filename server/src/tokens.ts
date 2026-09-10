@@ -80,21 +80,19 @@ export class DailyTokenBudget {
   remaining(userKey: string, now = new Date()): { requests: number; tokens: number } {
     const used = this.snapshot(userKey, now);
     const extra = purchasedTokenBalance(userKey);
+    const freeLeft = Math.max(0, this.limits.dailyRequestCap - used.requests);
     return {
-      requests: Math.max(0, this.limits.dailyRequestCap - used.requests),
-      tokens: Math.max(0, this.limits.dailyTokenCap - used.inputTokens - used.outputTokens) + extra,
+      requests: freeLeft,
+      tokens: freeLeft + extra,
     };
   }
 
-  canSpend(userKey: string, projectedInput: number, now = new Date()): { ok: true } | { ok: false; reason: string } {
+  canSpend(userKey: string, _projectedInput = 1, now = new Date()): { ok: true } | { ok: false; reason: string } {
     const used = this.snapshot(userKey, now);
     const extra = purchasedTokenBalance(userKey);
-    const dailyLeft = Math.max(0, this.limits.dailyTokenCap - used.inputTokens - used.outputTokens);
-    if (dailyLeft + extra < projectedInput) {
-      return { ok: false, reason: "daily-token-cap" };
-    }
-    if (used.requests >= this.limits.dailyRequestCap && extra < projectedInput) {
-      return { ok: false, reason: "daily-request-cap" };
+    const freeLeft = Math.max(0, this.limits.dailyRequestCap - used.requests);
+    if (freeLeft + extra < 1) {
+      return { ok: false, reason: extra > 0 ? "daily-token-cap" : "daily-request-cap" };
     }
     return { ok: true };
   }
@@ -105,11 +103,9 @@ export class DailyTokenBudget {
     current.inputTokens += inputTokens;
     current.outputTokens += outputTokens;
     current.estimatedCostUsd += estimateCostUsd(inputTokens, outputTokens);
-    const extra = purchasedTokenBalance(userKey);
-    const cost = inputTokens + outputTokens;
-    const fromPurchased = Math.min(extra, cost);
-    if (fromPurchased > 0) {
-      purchasedTokens.set(userKey, extra - fromPurchased);
+    if (current.requests > this.limits.dailyRequestCap) {
+      const extra = purchasedTokenBalance(userKey);
+      if (extra > 0) purchasedTokens.set(userKey, extra - 1);
     }
     this.byUser.set(userKey, current);
     return { ...current };
@@ -143,7 +139,7 @@ export function aiUsagePayload(
   return {
     requestsToday: used.requests,
     requestsRemaining: remaining.requests,
-    tokensToday: used.inputTokens + used.outputTokens,
+    tokensToday: used.requests,
     tokensRemaining: remaining.tokens,
     purchasedTokens: purchasedTokenBalance(userKey),
     dailyTokenCap: config.aiDailyTokenCap,

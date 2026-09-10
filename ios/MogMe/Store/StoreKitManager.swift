@@ -45,24 +45,17 @@ final class StoreKitManager: ObservableObject {
     @Published private(set) var purchasedTokens = 0
     @Published var lastError: String?
     @Published var showPaywall = false
+    @Published var showTokens = false
     @Published var showOfferCode = false
 
     private var updatesTask: Task<Void, Never>?
 
-    /// Lifetime is $4.99 after the Sep 9, 2026 App Store price change. Never show $59.99 / $60.
-    var displayPrice: String {
-        let live = product?.displayPrice ?? ""
-        if live.contains("4.99") || live.contains("4,99") { return live }
-        return Self.listedPrice
-    }
+    /// Always $4.99. Ignore StoreKit if it still lists the old $59.99 / $60 price.
+    var displayPrice: String { Self.listedPrice }
 
     var monthlyPrice: String { monthlyProduct?.displayPrice ?? "$5.99" }
     var annualPrice: String { annualProduct?.displayPrice ?? "$29.99" }
-    var tokenPrice: String {
-        let live = tokenProduct?.displayPrice ?? ""
-        if live.contains("0.99") || live.contains("0,99") { return live }
-        return Self.tokenListedPrice
-    }
+    var tokenPrice: String { Self.tokenListedPrice }
 
     deinit {
         updatesTask?.cancel()

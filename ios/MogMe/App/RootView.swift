@@ -35,6 +35,9 @@ struct RootView: View {
         .sheet(isPresented: $store.showPaywall) {
             PaywallView()
         }
+        .sheet(isPresented: $store.showTokens) {
+            TokensStoreView()
+        }
     }
 }
 

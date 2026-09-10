@@ -6,7 +6,11 @@ Open `ios/MogMe.xcodeproj` on a Mac with Xcode 16+.
 
 ## Lifetime price
 
-The paywall loads App Store Connect **MogMe.Lifetime.60** (Apple ID `6758647492`, reference `47`, display name **One-Time-Purchase**) at **$4.99**. Purchase, Restore, offer-code redemption (`LIFETIMEACCESS` / Lifetime Unlock), and unfinished StoreKit transactions all grant the same premium flag. The scheme StoreKit file is `ios/MogMe/Resources/Products.storekit`.
+The crown paywall always shows **$4.99** for **MogMe.Lifetime.60** (Apple ID `6758647492`, reference `47`). It never displays the old $59.99 / $60 list price. Purchase, Restore, offer-code redemption (`LIFETIMEACCESS` / Lifetime Unlock), and unfinished StoreKit transactions all grant the same premium flag. The scheme StoreKit file is `ios/MogMe/Resources/Products.storekit`.
+
+## AI tokens
+
+`Tokens.Mogme` (Apple ID `6810475672`, reference `54`) is the only token pack: **100 tokens for $0.99**. There is no watch-an-ad row and no Unlimited option. 1 token = 1 Rizz / Companion / Wingman / Mog-Off message. Users get 5 free tokens every day. The same pack is on the crown paywall, Home, and the Tokens sheet.
 
 ## Workouts
 

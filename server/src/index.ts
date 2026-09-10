@@ -47,7 +47,7 @@ app.get("/ai/usage", (req, res) => {
     usage: aiUsagePayload(userKey),
     dailyRequestCap: config.aiDailyRequestCap,
     dailyTokenCap: config.aiDailyTokenCap,
-    note: "Wingman, companion, rizz trainer, and mog-off rizz share this cap. Not unlimited. Buy Tokens.Mogme for 100 tokens.",
+    note: "5 free AI messages/day. Tokens.Mogme is the only pack: 100 tokens for $0.99. No ads. No Unlimited.",
   });
 });
 

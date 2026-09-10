@@ -43,11 +43,11 @@ export const config = {
   rizzModel: process.env.RIZZ_MODEL ?? "gpt-4o-mini",
   wingmanModel: process.env.WINGMAN_MODEL ?? process.env.RIZZ_MODEL ?? "gpt-4o-mini",
   wingmanMaxTokens: num("WINGMAN_MAX_TOKENS", 420),
-  // Shared daily cap for wingman + companion + rizz trainer + mog-off rizz. Not unlimited.
-  aiDailyRequestCap: num("AI_DAILY_REQUEST_CAP", num("WINGMAN_DAILY_REQUEST_CAP", 15)),
-  aiDailyTokenCap: num("AI_DAILY_TOKEN_CAP", num("WINGMAN_DAILY_TOKEN_CAP", 18_000)),
-  wingmanDailyRequestCap: num("AI_DAILY_REQUEST_CAP", num("WINGMAN_DAILY_REQUEST_CAP", 15)),
-  wingmanDailyTokenCap: num("AI_DAILY_TOKEN_CAP", num("WINGMAN_DAILY_TOKEN_CAP", 18_000)),
+  // 5 free AI messages/day. Tokens.Mogme adds 100 purchased message tokens.
+  aiDailyRequestCap: num("AI_DAILY_REQUEST_CAP", num("WINGMAN_DAILY_REQUEST_CAP", 5)),
+  aiDailyTokenCap: num("AI_DAILY_TOKEN_CAP", num("WINGMAN_DAILY_TOKEN_CAP", 5)),
+  wingmanDailyRequestCap: num("AI_DAILY_REQUEST_CAP", num("WINGMAN_DAILY_REQUEST_CAP", 5)),
+  wingmanDailyTokenCap: num("AI_DAILY_TOKEN_CAP", num("WINGMAN_DAILY_TOKEN_CAP", 5)),
 
   // Moderation (image + text). Wire real providers via these.
   moderationEnabled: process.env.MODERATION_ENABLED === "true",

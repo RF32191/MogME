@@ -24,18 +24,26 @@ test("purchased AI tokens extend the wallet past the daily cap", async () => {
   const key = `buy-${Date.now()}`;
   assert.equal(purchasedTokenBalance(key), 0);
   assert.equal(creditPurchasedTokens(key, 100), 100);
-  const budget = new DailyTokenBudget({ dailyRequestCap: 20, dailyTokenCap: 50 });
-  budget.record(key, 50, 0);
-  assert.equal(purchasedTokenBalance(key), 50);
-  assert.equal(budget.canSpend(key, 40).ok, true);
+  const budget = new DailyTokenBudget({ dailyRequestCap: 5, dailyTokenCap: 5 });
+  for (let i = 0; i < 5; i++) budget.record(key, 10, 10);
+  assert.equal(purchasedTokenBalance(key), 100);
+  assert.equal(budget.canSpend(key, 1).ok, true);
+  budget.record(key, 10, 10);
+  assert.equal(purchasedTokenBalance(key), 99);
+  assert.equal(budget.remaining(key).tokens, 99);
 });
 
-test("token cap blocks even when request slots remain", () => {
-  const budget = new DailyTokenBudget({ dailyRequestCap: 50, dailyTokenCap: 100 });
-  budget.record("token-user", 80, 15);
-  const blocked = budget.canSpend("token-user", 10);
-  assert.equal(blocked.ok, false);
-  if (!blocked.ok) assert.equal(blocked.reason, "daily-token-cap");
+test("one purchased token is one extra AI message", async () => {
+  const { creditPurchasedTokens, purchasedTokenBalance } = await import("./tokens.js");
+  const key = `one-${Date.now()}`;
+  creditPurchasedTokens(key, 2);
+  const budget = new DailyTokenBudget({ dailyRequestCap: 1, dailyTokenCap: 1 });
+  budget.record(key, 10, 10);
+  budget.record(key, 10, 10);
+  assert.equal(purchasedTokenBalance(key), 1);
+  budget.record(key, 10, 10);
+  assert.equal(purchasedTokenBalance(key), 0);
+  assert.equal(budget.canSpend(key).ok, false);
 });
 
 test("wingman projection stays small without an image", () => {

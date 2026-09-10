@@ -18,8 +18,8 @@ struct AIUsageSnapshot: Codable, Hashable {
         requestsRemaining: Int,
         tokensToday: Int,
         tokensRemaining: Int,
-        dailyTokenCap: Int = 18_000,
-        dailyRequestCap: Int = 15
+        dailyTokenCap: Int = 5,
+        dailyRequestCap: Int = 5
     ) {
         self.requestsToday = requestsToday
         self.requestsRemaining = requestsRemaining
@@ -35,35 +35,42 @@ struct AIUsageSnapshot: Codable, Hashable {
         requestsRemaining = try box.decodeIfPresent(Int.self, forKey: .requestsRemaining) ?? 0
         tokensToday = try box.decodeIfPresent(Int.self, forKey: .tokensToday) ?? 0
         tokensRemaining = try box.decodeIfPresent(Int.self, forKey: .tokensRemaining) ?? 0
-        dailyTokenCap = try box.decodeIfPresent(Int.self, forKey: .dailyTokenCap) ?? 18_000
-        dailyRequestCap = try box.decodeIfPresent(Int.self, forKey: .dailyRequestCap) ?? 15
+        dailyTokenCap = try box.decodeIfPresent(Int.self, forKey: .dailyTokenCap) ?? 5
+        dailyRequestCap = try box.decodeIfPresent(Int.self, forKey: .dailyRequestCap) ?? 5
     }
 }
 
 @MainActor
 final class AIQuota: ObservableObject {
+    static let dailyFreeTokens = 5
+
     @Published private(set) var snapshot = AIUsageSnapshot(
         requestsToday: 0,
-        requestsRemaining: 15,
+        requestsRemaining: 5,
         tokensToday: 0,
-        tokensRemaining: 18_000
+        tokensRemaining: 5
     )
     @Published var lastError: String?
     @Published private(set) var purchasedTokens = 0
 
     var line: String { tokenLine }
 
+    /// 5 free messages/day plus any Tokens.Mogme purchases. 1 token = 1 AI message.
+    var walletBalance: Int {
+        let freeLeft = max(0, Self.dailyFreeTokens - snapshot.requestsToday)
+        return freeLeft + purchasedTokens
+    }
+
     var tokenLine: String {
-        let total = snapshot.tokensRemaining + purchasedTokens
-        return "\(total.formatted()) tokens left · 100 for \(StoreKitManager.tokenListedPrice)"
+        "\(walletBalance.formatted()) tokens left · 100 for \(StoreKitManager.tokenListedPrice)"
     }
 
     var walletDetail: String {
-        "Daily \(snapshot.tokensRemaining.formatted()) + purchased \(purchasedTokens.formatted()) · used \(snapshot.tokensToday.formatted()) today"
+        "\(max(0, Self.dailyFreeTokens - snapshot.requestsToday)) free left today + \(purchasedTokens.formatted()) purchased"
     }
 
     var isExhausted: Bool {
-        snapshot.tokensRemaining + purchasedTokens <= 0
+        walletBalance <= 0
     }
 
     func addPurchased(_ amount: Int) {
@@ -91,8 +98,8 @@ final class AIQuota: ObservableObject {
             requestsRemaining: int(usage["requestsRemaining"] ?? remaining?["requests"]),
             tokensToday: int(usage["tokensToday"]),
             tokensRemaining: int(usage["tokensRemaining"] ?? remaining?["tokens"]),
-            dailyTokenCap: int(usage["dailyTokenCap"] ?? dict["dailyTokenCap"], fallback: 18_000),
-            dailyRequestCap: int(usage["dailyRequestCap"] ?? dict["dailyRequestCap"], fallback: 15)
+            dailyTokenCap: int(usage["dailyTokenCap"] ?? dict["dailyTokenCap"], fallback: 5),
+            dailyRequestCap: int(usage["dailyRequestCap"] ?? dict["dailyRequestCap"], fallback: 5)
         ))
         syncPurchased(int(usage["purchasedTokens"]))
     }

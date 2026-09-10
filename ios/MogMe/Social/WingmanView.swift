@@ -185,7 +185,7 @@ struct WingmanView: View {
                 Spacer()
             }
             .font(.caption)
-            TokenBuyBar(compact: true)
+            TokenBuyBar()
             Text(service.usageText).font(.caption2).foregroundStyle(MogTheme.muted)
         }
         .padding(12)
